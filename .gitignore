@@ -1,3 +1,6 @@
-.DS_Store
-nasm
-
+*.img
+*.inc
+*.lst
+lst/*
+software/*
+*.txt
