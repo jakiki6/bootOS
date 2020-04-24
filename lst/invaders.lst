@@ -1,0 +1,447 @@
+     1                                          ;
+     2                                          ; Invaders in 512 bytes
+     3                                          ;
+     4                                          ; by Oscar Toledo G.
+     5                                          ;
+     6                                          ; (c) Copyright 2015-2019 Oscar Toledo G.
+     7                                          ;
+     8                                          ; Creation: Oct/27/2015.
+     9                                          ; Revision: Nov/06/2015. Adjusted bullet collision. Invaders
+    10                                          ;                        accelerate.
+    11                                          ; Revision: Apr/03/2019. Invaders now can shoot. Spaceship does
+    12                                          ;                        explosion.
+    13                                          ; Revision: May/28/2019. Invaders goes down at 11px instead 12px.
+    14                                          ;                        Now starts another invaders wave more
+    15                                          ;                        difficult.
+    16                                          ; Revision: Jun/01/2019. Redesigned for 320x200x256 mode.
+    17                                          ; Revision: Jun/02/2019. Now in color. Color carries information
+    18                                          ;                        about thing being hit.
+    19                                          ; Revision: Jun/03/2019. Optimized, 601 bytes as COM!!!
+    20                                          ; Revision: Jun/04/2019. At last 512 bytes!
+    21                                          ; Revision: Jun/05/2019. By popular demand added pure8088 option. Now
+    22                                          ;                        the 8088 version also is bootable! so now
+    23                                          ;                        8088 is the default.
+    24                                          ; Revision: Jun/06/2019. jtsiomb made the point that the COM file
+    25                                          ;                        doesn't need to be 512 bytes, so Esc for
+    26                                          ;                        exiting and also returns to text mode.
+    27                                          ; Revision: Jun/29/2019. Now spaceship moves to left pressing Ctrl,
+    28                                          ;                        to right pressing Alt, and shoots pressing
+    29                                          ;                        Shift. Spaceship stops when you depress the
+    30                                          ;                        direction key. To exit you press Scroll
+    31                                          ;                        Lock. Used the extra bytes to implement
+    32                                          ;                        barriers that stop the invaders' bullets.
+    33                                          ;                        (suggested in Reddit by nils-m-holm).
+    34                                          ;
+    35                                  
+    36                                          ;
+    37                                          ; Using PUSHA and POPA the code can be smaller, not enabled by
+    38                                          ; default.
+    39                                          ;
+    40                                  
+    41                                      %ifndef pure8088            ; Define as 0 to create a 80186/80286 binary
+    42                                  pure8088:       equ 1           ; Enabled by default for pure 8088 assembler
+    43                                  
+    44                                          cpu 8086
+    45                                      %endif
+    46                                  
+    47                                      %ifndef com_file            ; If not defined create a boot sector
+    48                                  com_file:       equ 0
+    49                                      %endif
+    50                                  
+    51                                  base:           equ 0xfc80      ; Memory base (same segment as video)
+    52                                  
+    53                                  shots:          equ base+0x00   ; Space to contain 4 shots (2 bytes each one)
+    54                                                                  ; Plus space for a ignored shot (full table)
+    55                                                                  ; Notice (sprites + SPRITE_SIZE) - (shots + 2)
+    56                                                                  ; must be divisible by SPRITE_SIZE.
+    57                                  old_time:       equ base+0x0c   ; Old time
+    58                                  level:          equ base+0x10   ; Current level number
+    59                                  lives:          equ base+0x11   ; Current lives
+    60                                  sprites:        equ base+0x12   ; Space to contain sprite table
+    61                                  
+    62                                  SHIP_ROW:       equ 0x5c*OFFSET_X       ; Row of spaceship
+    63                                  X_WIDTH:        equ 0x0140      ; X-width of video
+    64                                  OFFSET_X:       equ X_WIDTH*2   ; X-offset between screen rows (2 pixels)
+    65                                  SPRITE_SIZE:    equ 4           ; Size of each sprite in bytes
+    66                                  
+    67                                          ;
+    68                                          ; All colors different (important to distinguish things)
+    69                                          ;
+    70                                  SPACESHIP_COLOR:        equ 0x1c        ; Must be below 0x20
+    71                                  BARRIER_COLOR:          equ 0x0b
+    72                                  SHIP_EXPLOSION_COLOR:   equ 0x0a
+    73                                  INVADER_EXPLOSION_COLOR:        equ 0x0e
+    74                                  BULLET_COLOR:           equ 0x0c
+    75                                  START_COLOR:    equ ((sprites+SPRITE_SIZE-(shots+2))/SPRITE_SIZE+0x20)        
+    76                                  
+    77                                      %if com_file
+    78                                          org 0x0100      ; Start position for COM files
+    79                                      %else
+    80                                          org 0x7c00      ; Start position for boot sector
+    81                                      %endif
+    82 00000000 B81300                          mov ax,0x0013   ; Set mode 0x13 (320x200x256 VGA)
+    83 00000003 CD10                            int 0x10        ; Call BIOS
+    84 00000005 FC                              cld
+    85 00000006 B800A0                          mov ax,0xa000   ; Point to screen memory
+    86 00000009 8ED8                            mov ds,ax       ; Both DS...
+    87 0000000B 8EC0                            mov es,ax       ; ...and ES
+    88 0000000D B404                            mov ah,0x04
+    89 0000000F A390FC                          mov [level],ax  ; Level = 0, Lives = 4
+    90                                  restart_game:
+    91 00000012 31C0                            xor ax,ax
+    92 00000014 B9487E                          mov cx,level/2  ; Clear screen and variables (except level/lives)
+    93 00000017 31FF                            xor di,di
+    94 00000019 F3                              rep
+    95 0000001A AB                              stosw           ; ch is zero from here
+    96                                  
+    97                                          ;
+    98                                          ; Setup descend state
+    99                                          ;
+   100 0000001B 8B05                            mov ax,[di]     ; al now contains level, ah contains lives
+   101 0000001D 40                              inc ax          ; Increase by 2 (so invaders descend correctly)
+   102 0000001E 40                              inc ax
+   103 0000001F AB                              stosw           ; Advance level
+   104 00000020 88C4                            mov ah,al
+   105 00000022 92                              xchg ax,dx      ; Shouldn't damage DX starting here
+   106                                  
+   107                                          ;
+   108                                          ; Setup the spaceship
+   109                                          ;
+   110 00000023 B8001C                          mov ax,SPACESHIP_COLOR*0x0100+0x00
+   111 00000026 AB                              stosw
+   112 00000027 B898E6                          mov ax,SHIP_ROW+0x4c*2
+   113 0000002A AB                              stosw
+   114                                          ;
+   115                                          ; Setup the invaders
+   116                                          ;
+   117 0000002B B82814                          mov ax,0x08*OFFSET_X+0x28
+   118 0000002E BB1025                          mov bx,START_COLOR*0x0100+0x10
+   119 00000031 B10B                    in1:    mov cl,0x0b             ; Eleven invaders per row
+   120 00000033 AB                      in5:    stosw                   ; Set invader position
+   121 00000034 83C016                          add ax,0x0b*2           ; Go to next column
+   122 00000037 93                              xchg ax,bx
+   123 00000038 AB                              stosw                   ; Set invader color and shape
+   124 00000039 FEC4                            inc ah                  ; Go to next color
+   125 0000003B 93                              xchg ax,bx
+   126 0000003C E2F5                            loop in5                ; Loop and also make sure ch is zero
+   127 0000003E 058E15                          add ax,0x09*OFFSET_X-0x000b*0x000b*2    ; Go to next row
+   128 00000041 80FF5C                          cmp bh,START_COLOR+55   ; Whole board finished?
+   129 00000044 75EB                            jne in1                 ; No, jump
+   130                                  
+   131                                          ;
+   132                                          ; Draw the barriers
+   133                                          ;
+   134 00000046 BFA0D4                          mov di,0x55*0x280+0x10*2
+   135 00000049 B105                            mov cl,5
+   136                                  in48:
+   137 0000004B B8040B                          mov ax,BARRIER_COLOR*0x0100+0x04
+   138 0000004E E88501                          call draw_sprite
+   139 00000051 83C73C                          add di,0x1e*2
+   140 00000054 E2F5                            loop in48
+   141                                  
+   142                                          ; CH is zero
+   143                                  
+   144                                  in14:
+   145 00000056 BE96FC                          mov si,sprites+SPRITE_SIZE
+   146                                  
+   147                                          ;
+   148                                          ; Game loop
+   149                                          ;
+   150                                          ; Globals:
+   151                                          ; SI = Next invader to animate
+   152                                          ; DL = state (0=left, 1=right, >=2 down)
+   153                                          ; DH = nstate (next state)
+   154                                          ; CH = dead invaders
+   155                                          ; BP = frame counter
+   156                                          ;
+   157                                  in46:
+   158 00000059 807C0220                        cmp byte [si+2],0x20    ; Current invader is cosmic debris?
+   159 0000005D 722D                            jc in2                  ; No, jump
+   160 0000005F FEC5                            inc ch                  ; Count another dead invader
+   161 00000061 80FD37                          cmp ch,55               ; All invaders defeated?
+   162 00000064 74AC                            je restart_game         ; Yes, jump.
+   163                                          ;
+   164                                          ; Yes, invaders speed up
+   165                                          ;
+   166                                  in6:
+   167 00000066 AD                              lodsw                   ; Load position in AX
+   168 00000067 97                              xchg ax,di              ; Move to DI
+   169 00000068 AD                              lodsw                   ; Get type of sprite
+   170 00000069 3C28                            cmp al,0x28             ; Destroyed?
+   171 0000006B 740B                            je in27                 ; Yes, jump
+   172 0000006D 3C20                            cmp al,0x20             ; Explosion?
+   173 0000006F 7504                            jne in29                ; No, jump
+   174 00000071 C644FE28                        mov byte [si-2],0x28    ; Don't draw again
+   175 00000075 E85E01                  in29:   call draw_sprite        ; Draw invader on screen
+   176 00000078 81FE72FD                in27:   cmp si,sprites+56*SPRITE_SIZE     ; Whole board revised?
+   177 0000007C 75DB                            jne in46                ; No, jump
+   178 0000007E 88F0                            mov al,dh
+   179 00000080 2C02                            sub al,2                ; Going down?
+   180 00000082 72D2                            jc in14                 ; No, preserve left/right direction
+   181 00000084 3401                            xor al,1                ; Switch direction
+   182 00000086 88C2                            mov dl,al
+   183 00000088 88C6                            mov dh,al
+   184 0000008A EBCA                            jmp in14
+   185                                  
+   186                                  in2:
+   187 0000008C 80740208                        xor byte [si+2],8       ; Invader animation (before possible explosion)
+   188                                          ;
+   189                                          ; Synchronize game to 18.20648 hz. of BIOS
+   190                                          ;
+   191 00000090 45                              inc bp
+   192 00000091 83E507                          and bp,7                ; Each 8 invaders
+   193                                      %if pure8088
+   194 00000094 52                              push dx
+   195 00000095 56                              push si
+   196 00000096 55                              push bp
+   197                                      %else
+   198                                          pusha
+   199                                      %endif
+   200 00000097 750E                            jne in12
+   201                                  in22:
+   202 00000099 B400                            mov ah,0x00           
+   203 0000009B CD1A                            int 0x1a                ; BIOS clock read
+   204 0000009D 3B168CFC                        cmp dx,[old_time]       ; Wait for change
+   205 000000A1 74F6                            je in22
+   206 000000A3 89168CFC                        mov [old_time],dx       ; Save new current time
+   207                                  in12:
+   208                                      %if 1
+   209                                          ;
+   210                                          ; Handle player bullet
+   211                                          ;
+   212 000000A7 BE80FC                          mov si,shots                    ; Point to shots list
+   213 000000AA B90400                          mov cx,4                        ; 4 shots at most
+   214 000000AD AD                              lodsw                           ; Read position (player)
+   215 000000AE 3D4001                          cmp ax,X_WIDTH                  ; Is it at top of screen?
+   216 000000B1 97                              xchg ax,di
+   217 000000B2 7243                            jc in31                         ; Erase bullet
+   218                                                                          ; Doesn't mind doing it all time
+   219 000000B4 E81701                          call zero                       ; Remove bullet 
+   220 000000B7 81EF4201                        sub di,X_WIDTH+2
+   221 000000BB 8A05                            mov al,[di]                     ; Read pixel
+   222 000000BD 2C20                            sub al,0x20                     ; Hits invader?
+   223 000000BF 7229                            jc in30                         ; No, jump
+   224                                      %if pure8088
+   225 000000C1 56                              push si
+   226 000000C2 57                              push di
+   227                                      %else
+   228                                          pusha
+   229                                      %endif
+   230 000000C3 B404                            mov ah,SPRITE_SIZE              ; The pixel indicates the...
+   231 000000C5 F6E4                            mul ah                          ; ...invader hit.
+   232 000000C7 01C6                            add si,ax
+   233 000000C9 AD                              lodsw
+   234 000000CA 97                              xchg ax,di
+   235 000000CB C60420                          mov byte [si],0x20              ; Erase next time
+   236 000000CE B8080E                          mov ax,INVADER_EXPLOSION_COLOR*0x0100+0x08      ; But explosion now
+   237 000000D1 E80201                          call draw_sprite                ; Draw sprite
+   238                                      %if pure8088
+   239 000000D4 5F                              pop di
+   240 000000D5 5E                              pop si
+   241                                      %else
+   242                                          popa
+   243                                      %endif
+   244 000000D6 EB1F                            jmp in31
+   245                                  
+   246                                          ;
+   247                                          ; Handle invader bullets
+   248                                          ;
+   249                                  in24:
+   250 000000D8 AD                              lodsw                           ; Read current coordinate
+   251 000000D9 09C0                            or ax,ax                        ; Is it falling?
+   252 000000DB 742D                            je in23                         ; No, jump
+   253 000000DD 3D00F0                          cmp ax,0x60*OFFSET_X            ; Pixel lower than spaceship?
+   254 000000E0 97                              xchg ax,di
+   255 000000E1 7314                            jnc in31                        ; Yes, remove bullet
+   256 000000E3 E8E800                          call zero                       ; Remove bullet 
+   257 000000E6 81C73E01                        add di,X_WIDTH-2                ; Bullet falls down
+   258                                  
+   259                                          ; Draw bullet
+   260                                  in30:
+   261 000000EA B80C0C                          mov ax,BULLET_COLOR*0x0100+BULLET_COLOR
+   262 000000ED 897CFE                          mov [si-2],di                   ; Update position of bullet
+   263 000000F0 80BD40010B                      cmp byte [di+X_WIDTH],BARRIER_COLOR     ; Barrier in path?
+   264 000000F5 7505                            jne in7                         ; Yes, erase bullet and barrier pixel
+   265                                  
+   266                                          ; Remove bullet
+   267 000000F7 31C0                    in31:   xor ax,ax                       ; AX contains zero (DI unaffected)
+   268 000000F9 8944FE                          mov [si-2],ax                   ; Delete bullet from table
+   269                                  
+   270 000000FC 803D1C                  in7:    cmp byte [di],SPACESHIP_COLOR   ; Check collision with player
+   271 000000FF 7506                            jne in41                        ; No, jump
+   272 00000101 C70692FC380A                    mov word [sprites],SHIP_EXPLOSION_COLOR*0x0100+0x38 ; Player explosion
+   273                                  in41:
+   274 00000107 E8C600                          call big_pixel                  ; Draw/erase bullet
+   275 0000010A E2CC                    in23:   loop in24
+   276                                      %endif
+   277                                  
+   278                                          ;
+   279                                          ; Spaceship handling
+   280                                          ;
+   281 0000010C BE92FC                          mov si,sprites                  ; Point to spaceship
+   282 0000010F AD                              lodsw                           ; Load sprite frame / color
+   283 00000110 08C0                            or al,al                        ; Explosion?
+   284 00000112 740C                            je in42                         ; No, jump
+   285 00000114 0408                            add al,0x08                     ; Keep explosion
+   286 00000116 7508                            jne in42                        ; Finished? No, jump
+   287 00000118 B41C                            mov ah,SPACESHIP_COLOR          ; Restore color (sprite already)
+   288 0000011A FE0E91FC                        dec byte [lives]                ; Remove one life
+   289 0000011E 784A                            js in10                         ; Exit if all used
+   290 00000120 8944FE                  in42:   mov [si-2],ax                   ; Save new frame / color
+   291 00000123 8B3C                            mov di,[si]                     ; Load position
+   292 00000125 E8AE00                          call draw_sprite                ; Draw sprite (spaceship)
+   293 00000128 752E                            jne in43                        ; Jump if still explosion
+   294                                  
+   295 0000012A B402                            mov ah,0x02                     ; BIOS Get Keyboard Flags 
+   296 0000012C CD16                            int 0x16
+   297                                      %if com_file
+   298                                          test al,0x10                    ; Test for Scroll Lock and exit
+   299                                          jnz in10
+   300                                      %endif
+   301                                  
+   302 0000012E A804                            test al,0x04                    ; Ctrl key?
+   303 00000130 7402                            jz in17                         ; No, jump
+   304 00000132 4F                              dec di                          ; Move 2 pixels to left
+   305 00000133 4F                              dec di
+   306                                  
+   307 00000134 A808                    in17:   test al,0x08                    ; Alt key?
+   308 00000136 7402                            jz in18                         ; No, jump
+   309 00000138 47                              inc di                          ; Move 2 pixels to right
+   310 00000139 47                              inc di
+   311                                  in18:
+   312 0000013A A803                            test al,0x03                    ; Shift keys?
+   313 0000013C 740D                            jz in35                         ; No, jump
+   314 0000013E 833E80FC00                      cmp word [shots],0              ; Bullet available?
+   315 00000143 7506                            jne in35                        ; No, jump
+   316 00000145 8D4508                          lea ax,[di+(0x04*2)]            ; Offset from spaceship
+   317 00000148 A380FC                          mov [shots],ax                  ; Start bullet
+   318                                  in35:
+   319 0000014B 97                              xchg ax,di
+   320 0000014C 3DFEE5                          cmp ax,SHIP_ROW-2               ; Update if not touching border
+   321 0000014F 7407                            je in43
+   322 00000151 3D32E7                          cmp ax,SHIP_ROW+0x0132
+   323 00000154 7402                            je in43
+   324 00000156 8904                    in19:   mov [si],ax                     ; Update position
+   325                                  in43:
+   326                                      %if pure8088
+   327 00000158 5D                              pop bp
+   328 00000159 5E                              pop si
+   329 0000015A 5A                              pop dx
+   330                                      %else
+   331                                          popa
+   332                                      %endif
+   333                                  
+   334 0000015B 8B04                            mov ax,[si]             ; Get position of current invader
+   335 0000015D 80FA01                          cmp dl,1                ; Going down (state 2)?
+   336 00000160 760A                            jbe in9                 ; No, jump
+   337 00000162 058002                          add ax,0x0280           ; Go down by 2 pixels
+   338 00000165 3D80D4                          cmp ax,0x55*0x280       ; Reaches Earth?
+   339 00000168 721B                            jc in8                  ; No, jump
+   340                                  in10:
+   341                                      %if com_file
+   342                                          mov ax,0x0003           ; Restore text mode
+   343                                          int 0x10
+   344                                      %endif
+   345 0000016A CD20                            int 0x20                ; Exit to DOS
+   346                                  
+   347 0000016C 48                      in9:    dec ax                  ; Moving to left
+   348 0000016D 48                              dec ax
+   349 0000016E 7203                            jc in20
+   350 00000170 83C004                          add ax,4                ; Moving to right
+   351 00000173 50                      in20:   push ax
+   352 00000174 D1E8                            shr ax,1                ; Divide position by 2...
+   353 00000176 B1A0                            mov cl,0xa0             ; ...means we can get column dividing by 0xa0
+   354 00000178 F6F1                            div cl                  ; ...instead of 0x0140 (longer code)
+   355 0000017A FECC                            dec ah                  ; Convert 0x00 to 0xff
+   356 0000017C 80FC94                          cmp ah,0x94             ; Border touched? (>= 0x94)
+   357 0000017F 58                              pop ax
+   358 00000180 7203                            jb in8                  ; No, jump
+   359 00000182 80CE16                          or dh,22                ; Goes down by 11 pixels (11 * 2) must be odd
+   360 00000185 8904                    in8:    mov [si],ax
+   361 00000187 05060F                          add ax,0x06*0x280+0x03*2        ; Offset for bullet
+   362 0000018A 93                              xchg ax,bx
+   363                                  
+   364 0000018B B90300                          mov cx,3        ; ch = 0 - invader alive
+   365 0000018E E440                            in al,(0x40)    ; Read timer
+   366 00000190 3CFC                            cmp al,0xfc     ; Random event happening?
+   367 00000192 720D                            jc in4          ; No, jump
+   368                                          ;
+   369                                          ; Doesn't work in my computer:
+   370                                          ;
+   371                                          ; mov di,shots+2
+   372                                          ; xor ax,ax
+   373                                          ; repne scasw
+   374                                          ; mov [di-2],bx
+   375                                          ;
+   376 00000194 BF82FC                          mov di,shots+2
+   377 00000197 833D00                  in45:   cmp word [di],0 ; Search for free slot
+   378 0000019A 7403                            je in44         ; It's free, jump!
+   379 0000019C AF                              scasw           ; Advance DI
+   380 0000019D E2F8                            loop in45       ; Until 3 slots searched
+   381                                  in44:
+   382 0000019F 891D                            mov [di],bx     ; Start invader shot (or put in ignored slot)
+   383                                  in4:
+   384 000001A1 E9C2FE                          jmp in6
+   385                                  
+   386                                          ;
+   387                                          ; Bitmaps for sprites
+   388                                          ;
+   389                                  bitmaps:
+   390 000001A4 18183C243C7EFFA5                db 0x18,0x18,0x3c,0x24,0x3c,0x7e,0xff,0xa5      ; Spaceship
+   391 000001AC 0080421810488201                db 0x00,0x80,0x42,0x18,0x10,0x48,0x82,0x01      ; Explosion
+   392 000001B4 00BDDB7E243C66C3                db 0x00,0xbd,0xdb,0x7e,0x24,0x3c,0x66,0xc3      ; Alien (frame 1)
+   393 000001BC 003C5AFFA53C6666                db 0x00,0x3c,0x5a,0xff,0xa5,0x3c,0x66,0x66      ; Alien (frame 2)
+   394 000001C4 0000000000000000                db 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00      ; Erase
+   395                                  
+   396                                          ;
+   397                                          ; Draw pixel per Carry (use AX if Carry=1 or zero if Carry=0)
+   398                                          ;
+   399 000001CC 7202                    bit:    jc big_pixel
+   400 000001CE 31C0                    zero:   xor ax,ax
+   401                                          ; Draw a big pixel (2x2 pixels)
+   402                                  big_pixel:
+   403 000001D0 89854001                        mov [di+X_WIDTH],ax
+   404 000001D4 AB                              stosw
+   405 000001D5 C3                              ret
+   406                                  
+   407                                          ; ah = sprite color
+   408                                          ; al = sprite (x8)
+   409                                          ; di = Target address
+   410                                  draw_sprite:
+   411                                      %if pure8088
+   412 000001D6 51                              push cx
+   413 000001D7 57                              push di
+   414 000001D8 9C                              pushf
+   415                                      %else
+   416                                          pusha
+   417                                      %endif
+   418 000001D9 50                      in3:    push ax
+   419 000001DA BB[A401]                        mov bx,bitmaps
+   420 000001DD 2ED7                            cs xlat                 ; Extract one byte from bitmap
+   421 000001DF 93                              xchg ax,bx              ; bl contains byte, bh contains color
+   422 000001E0 B90A00                          mov cx,10               ; Two extra zero pixels at left and right
+   423 000001E3 F8                              clc                     ; Left pixel as zero (clean)
+   424 000001E4 88F8                    in0:    mov al,bh               ; Duplicate color in AX
+   425 000001E6 88FC                            mov ah,bh
+   426 000001E8 E8E1FF                          call bit                ; Draw pixel
+   427 000001EB D0E3                            shl bl,1
+   428 000001ED E2F5                            loop in0
+   429 000001EF 81C76C02                        add di,OFFSET_X-20      ; Go to next video line
+   430 000001F3 58                              pop ax
+   431 000001F4 40                              inc ax                  ; Next bitmap byte
+   432 000001F5 A807                            test al,7               ; Sprite complete?
+   433 000001F7 75E0                            jne in3                 ; No, jump
+   434                                      %if pure8088
+   435 000001F9 9D                              popf
+   436 000001FA 5F                              pop di
+   437 000001FB 59                              pop cx
+   438                                      %else
+   439                                          popa
+   440                                      %endif
+   441 000001FC C3                              ret
+   442                                  
+   443                                      %if com_file
+   444                                      %else
+   445 000001FD 4F                              times 510-($-$$) db 0x4f
+   446 000001FE 55AA                            db 0x55,0xaa            ; Make it a bootable sector
+   447                                      %endif

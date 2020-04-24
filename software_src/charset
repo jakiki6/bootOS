@@ -1,0 +1,70 @@
+
+	;
+	; Show the available charset
+	;
+	; by Oscar Toledo G. http://nanochess.org/
+	;
+	; Creation date: Jun/27/2017.
+	;
+	org 0x7c00
+	cpu 8086
+
+	mov ax, 0x0002
+	int 0x10
+	mov ax, 0xb800
+	mov ds, ax
+	mov es, ax
+
+	xor di, di
+	mov cx, 0x07d0
+	mov al, " "
+	mov ah, 0b00001111
+	rep stosw
+
+	mov di, 0x00a4
+	mov al, 0x00
+
+a1:	push di
+	push ax
+	mov cl, 4
+	shr al, cl
+	add al, 0x30
+	cmp al, 0x3a
+	jb a3
+	add al, 0x07
+a3:	stosb
+	inc di
+
+	pop ax
+	push ax	
+	and al, 0x0f
+	add al, 0x30
+	cmp al, 0x3a
+	jb a4
+	add al, 0x07
+a4:	stosb
+	inc di
+	mov al, 0x2d
+	stosb
+	inc di
+
+	inc di
+	inc di
+	pop ax
+	stosb
+	pop di
+	inc al
+	jz a2
+
+	add di, 0x00a0
+	cmp di, 0x0fa0
+	jb a1
+	sub di, 0x0f00 - 14
+
+	jmp a1
+
+a2:	xor ax, ax
+	int 0x16
+	mov ax, 0x0002
+	int 0x10
+        int 0x20

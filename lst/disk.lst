@@ -1,0 +1,28 @@
+     1                                  org 0x7c00
+     2                                  cs_command:
+     3 00000000 B040                            mov al, "@"
+     4 00000002 E82500                          call input_line
+     5 00000005 E80F00                          call xdigit             ; Get a hexadecimal digit
+     6 00000008 B104                            mov cl,4
+     7 0000000A D2E0                            shl al,cl
+     8 0000000C 91                              xchg ax,cx
+     9 0000000D E80700                          call xdigit             ; Get a hexadecimal digit
+    10 00000010 08C8                            or al,cl
+    11 00000012 A2257B                          mov byte [0x7a00 + 292 + 1], al
+    12 00000015 CD20                    	int 0x20
+    13                                  xdigit:  
+    14 00000017 AC                              lodsb
+    15 00000018 3C00                            cmp al,0x00             ; Zero character marks end of line
+    16 0000001A 740D                            je r
+    17 0000001C 2C30                            sub al,0x30             ; Avoid spaces (anything below ASCII 0x30)
+    18 0000001E 72F7                            jc xdigit
+    19 00000020 3C0A                            cmp al,0x0a
+    20 00000022 7205                            jc r
+    21 00000024 2C07                            sub al,0x07
+    22 00000026 240F                            and al,0x0f   
+    23 00000028 F9                              stc
+    24                                  r:
+    25 00000029 C3                              ret
+    26                                  input_line:   
+    27 0000002A CD26                            int 0x26
+    28 0000002C C3                      	ret

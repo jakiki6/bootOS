@@ -1,0 +1,17 @@
+org 0x7c00
+cs_command:
+        mov al, "?"
+        call input_line
+	mov bx, si
+	mov di, 0x7f00
+	int 0x23
+	jc err
+	mov byte [0xfffc], 0x01
+	int 0x20
+err:
+	mov al, 0x13
+	int 0x22
+	int 0x20
+input_line:   
+        int 0x26
+	ret

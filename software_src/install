@@ -1,0 +1,36 @@
+org 0x7c00
+cs_command:
+        mov al, "@"
+        call input_line
+        call xdigit             ; Get a hexadecimal digit
+        mov cl,4
+        shl al,cl
+        xchg ax,cx
+        call xdigit             ; Get a hexadecimal digit
+        or al,cl
+	push ax
+	xor ax, ax
+	mov es, ax    ; ES <- 0
+	mov cx, 0x0001
+	pop dx
+	xor dh, dh
+	mov bx, 0x7a00; segment offset of the buffer
+	mov ax, 0x0301; AH = 03 (disk write), AL = 01 (number of sectors to write)
+	int 13h
+	int 0x20
+xdigit:  
+        lodsb
+        cmp al,0x00             ; Zero character marks end of line
+        je r
+        sub al,0x30             ; Avoid spaces (anything below ASCII 0x30)
+        jc xdigit
+        cmp al,0x0a
+        jc r
+        sub al,0x07
+        and al,0x0f   
+        stc
+r:
+        ret
+input_line:   
+        int 0x26
+	ret

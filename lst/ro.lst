@@ -1,0 +1,33 @@
+     1                                  org 0xc000
+     2                                  bits 16
+     3                                  init:
+     4 00000000 BE007C                  	mov si, 0x7c00
+     5 00000003 BF00C0                  	mov di, 0xc000
+     6 00000006 B90002                  	mov cx, 0x0200
+     7 00000009 F3A4                    	rep movsb
+     8                                  start:
+     9 0000000B BE9000                  	mov si, 0x0024 * 4
+    10 0000000E BF00C2                  	mov di, 0xc200
+    11 00000011 A5                      	movsw
+    12 00000012 A5                      	movsw
+    13 00000013 B8[1E00]                	mov ax, not_permitted
+    14 00000016 A39000                  	mov word [0x0024 * 4], ax
+    15 00000019 A39400                  	mov word [0x0025 * 4], ax
+    16 0000001C CD20                    	int 0x20
+    17                                  not_permitted:
+    18 0000001E BE[3300]                	mov si, message	
+    19                                  loop:
+    20 00000021 AC                      	lodsb
+    21 00000022 84C0                    	test al, al
+    22 00000024 9C                      	pushf
+    23 00000025 CD22                    	int 0x22
+    24 00000027 9D                      	popf
+    25 00000028 75F7                    	jne loop
+    26 0000002A B80D0E                  	mov ax, 0x0e0d
+    27 0000002D BB0700                  	mov bx, 0x0007
+    28 00000030 CD10                    	int 0x10
+    29 00000032 CF                      	iret
+    30 00000033 53797374656D207275-     message: db "System runs in read only mode!", 0x0a, 0
+    30 0000003C 6E7320696E20726561-
+    30 00000045 64206F6E6C79206D6F-
+    30 0000004E 6465210A00         

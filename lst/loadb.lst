@@ -1,0 +1,17 @@
+     1                                  org 0x7c00
+     2                                  cs_command:
+     3 00000000 B03F                            mov al, "?"
+     4 00000002 E81600                          call input_line
+     5 00000005 89F3                    	mov bx, si
+     6 00000007 BF007F                  	mov di, 0x7f00
+     7 0000000A CD23                    	int 0x23
+     8 0000000C 7207                    	jc err
+     9 0000000E C606FCFF01              	mov byte [0xfffc], 0x01
+    10 00000013 CD20                    	int 0x20
+    11                                  err:
+    12 00000015 B013                    	mov al, 0x13
+    13 00000017 CD22                    	int 0x22
+    14 00000019 CD20                    	int 0x20
+    15                                  input_line:   
+    16 0000001B CD26                            int 0x26
+    17 0000001D C3                      	ret

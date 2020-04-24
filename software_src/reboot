@@ -1,0 +1,5 @@
+xor ax, ax
+mov ds, ax
+mov ax,0000
+mov [0472], ax
+jmp 0xFFFF:0000

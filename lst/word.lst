@@ -1,0 +1,55 @@
+     1                                  	org 0x7c00
+     2                                  	bits 16
+     3                                  
+     4                                  video:	equ 0xb800
+     5                                  
+     6 00000000 B80200                  init:	mov ax, 0x0002
+     7 00000003 CD10                    	int 0x10
+     8 00000005 B800B8                  	mov ax, video
+     9 00000008 50                      	push ax
+    10 00000009 50                      	push ax
+    11 0000000A 1F                      	pop ds
+    12 0000000B 07                      	pop es
+    13 0000000C FC                      	cld
+    14 0000000D B80F00                  	mov ax, 0x000f
+    15 00000010 B9D007                  	mov cx, 2000
+    16 00000013 31FF                    	xor di, di
+    17 00000015 F3AB                    	rep stosw
+    18 00000017 31FF                    	xor di, di
+    19 00000019 31F6                    	xor si, si
+    20 0000001B E80500                  main:	call getch
+    21 0000001E E80D00                  	call handle
+    22 00000021 EBF8                    	jmp main
+    23 00000023 B402                    getch:	mov ah, 0x02
+    24 00000025 CD16                    	int 0x16
+    25 00000027 7404                    	jz .end
+    26 00000029 31C0                    	xor ax, ax
+    27 0000002B CD16                    	int 0x16
+    28 0000002D C3                      .end:	ret
+    29 0000002E B40F                    handle:	mov ah, 0x0f
+    30 00000030 3C1B                    	cmp al, 0x1b
+    31 00000032 7402                    	je .exit
+    32                                  	;cmp al, 0xa0
+    33                                  	;je .newline
+    34                                  	;cmp al, 0x0d
+    35                                  	;je .carraige
+    36                                  	;cmp al, 0x08
+    37                                  	;je .delete
+    38 00000034 AB                      	stosw
+    39 00000035 C3                      	ret
+    40 00000036 31F6                    .exit:	xor si, si
+    41 00000038 BF00A0                  	mov di, 0xa000
+    42 0000003B B9D007                  	mov cx, 2000
+    43 0000003E A4                      .loop1:	movsb
+    44 0000003F 47                      	inc di
+    45 00000040 E2FC                    	loop .loop1
+    46 00000042 31FF                    	xor di, di
+    47 00000044 B800F0                  	mov ax, 0xf000
+    48 00000047 B9D007                  	mov cx, 2000
+    49 0000004A F3AB                    	rep stosw
+    50 0000004C B02A                    	mov al, "*"
+    51 0000004E CD26                    	int 0x26
+    52 00000050 BE8077                  	mov si, 0x7780
+    53 00000053 BF00A0                  	mov di, 0xa000
+    54 00000056 CD23                    	int 0x23
+    55 00000058 CD20                    	int 0x20

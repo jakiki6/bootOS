@@ -1,0 +1,103 @@
+bits 16
+org 0xe000
+
+init:	xor ax, ax
+	mov dx, ax
+	mov es, ax
+	mov ss, ax
+	mov sp, 0x8000
+
+	mov si, 0x7c00
+	mov di, 0xe000
+	mov cx, 0x0200
+	rep movsb
+	jmp start
+start:	mov si, interrupts
+	mov di, 0x0027 * 4
+	mov cx, 0x0001
+.loop:	movsw
+	stosw
+	loop .loop
+	int 0x20
+
+main:	pusha
+	push ds
+	push es
+	pushf
+	;;;;;;;;;;;;;;;;;;;;;
+	;                   ;
+	; Clock             ;
+	;                   ;
+	;;;;;;;;;;;;;;;;;;;;;
+	mov ax, 0xb800
+	mov ds, ax
+	mov es, ax
+	xor ax, ax
+	mov di, 0x8e
+	mov cx, 0x1
+	rep stosw
+	mov di, 0x0090
+	mov ah, 0x02
+	int 0x1a	; get time: ch=hours cl=minutes dh=seconds
+	mov al, ch
+	call digit
+	call prnt
+	mov al, cl
+	call digit
+	call prnt
+	mov al, dh
+	call digit
+	; date
+	mov di, 0x012a
+	mov cx, 0x1
+	xor ax, ax
+	rep stosw
+	mov di, 0x012c
+	mov ah, 0x04
+	int 0x1a
+	mov al, dl
+	call digit
+	call prnt2
+	mov al, dh
+	call digit
+        call prnt2
+	mov al, ch
+	call digit
+	mov al, cl
+	call digit
+	popf
+	pop ds
+	pop es
+	popa
+	iret
+
+digit:	mov ah, al
+	and ah, 0b11110000
+	and al, 0b00001111
+	shr ah, 4
+	add ah, '0'
+	add al, '0'
+	push ax
+	mov al, ah
+	stosb
+	mov al, 0b01110000
+	stosb
+	pop ax
+	stosb
+	mov al, 0b01110000
+	stosb
+	ret
+
+prnt:	mov al, ":"
+	stosb
+	mov al, 0xf0
+	stosb
+	ret
+prnt2:	mov al, "."
+        stosb
+        mov al, 0b01110000
+        stosb
+        ret
+
+interrupts:
+	dw main

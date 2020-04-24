@@ -1,0 +1,3 @@
+mov ax,0x0003           ; Restore text mode
+int 0x10
+int 0x20

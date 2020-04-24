@@ -1,0 +1,30 @@
+org 0xc000
+bits 16
+init:
+	mov si, 0x7c00
+	mov di, 0xc000
+	mov cx, 0x0200
+	rep movsb
+start:
+	mov si, 0x0024 * 4
+	mov di, 0xc200
+	movsw
+	movsw
+	mov ax, not_permitted
+	mov word [0x0024 * 4], ax
+	mov word [0x0025 * 4], ax
+	int 0x20
+not_permitted:
+	mov si, message	
+loop:
+	lodsb
+	test al, al
+	pushf
+	int 0x22
+	popf
+	jne loop
+	mov ax, 0x0e0d
+	mov bx, 0x0007
+	int 0x10
+	iret
+message: db "System runs in read only mode!", 0x0a, 0

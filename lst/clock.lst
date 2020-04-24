@@ -1,0 +1,103 @@
+     1                                  bits 16
+     2                                  org 0xe000
+     3                                  
+     4 00000000 31C0                    init:	xor ax, ax
+     5 00000002 89C2                    	mov dx, ax
+     6 00000004 8EC0                    	mov es, ax
+     7 00000006 8ED0                    	mov ss, ax
+     8 00000008 BC0080                  	mov sp, 0x8000
+     9                                  
+    10 0000000B BE007C                  	mov si, 0x7c00
+    11 0000000E BF00E0                  	mov di, 0xe000
+    12 00000011 B90002                  	mov cx, 0x0200
+    13 00000014 F3A4                    	rep movsb
+    14 00000016 EB00                    	jmp start
+    15 00000018 BE[B200]                start:	mov si, interrupts
+    16 0000001B BF9C00                  	mov di, 0x0027 * 4
+    17 0000001E B90100                  	mov cx, 0x0001
+    18 00000021 A5                      .loop:	movsw
+    19 00000022 AB                      	stosw
+    20 00000023 E2FC                    	loop .loop
+    21 00000025 CD20                    	int 0x20
+    22                                  
+    23 00000027 60                      main:	pusha
+    24 00000028 1E                      	push ds
+    25 00000029 06                      	push es
+    26 0000002A 9C                      	pushf
+    27                                  	;;;;;;;;;;;;;;;;;;;;;
+    28                                  	;                   ;
+    29                                  	; Clock             ;
+    30                                  	;                   ;
+    31                                  	;;;;;;;;;;;;;;;;;;;;;
+    32 0000002B B800B8                  	mov ax, 0xb800
+    33 0000002E 8ED8                    	mov ds, ax
+    34 00000030 8EC0                    	mov es, ax
+    35 00000032 31C0                    	xor ax, ax
+    36 00000034 BF8E00                  	mov di, 0x8e
+    37 00000037 B90100                  	mov cx, 0x1
+    38 0000003A F3AB                    	rep stosw
+    39 0000003C BF9000                  	mov di, 0x0090
+    40 0000003F B402                    	mov ah, 0x02
+    41 00000041 CD1A                    	int 0x1a	; get time: ch=hours cl=minutes dh=seconds
+    42 00000043 88E8                    	mov al, ch
+    43 00000045 E84000                  	call digit
+    44 00000048 E85900                  	call prnt
+    45 0000004B 88C8                    	mov al, cl
+    46 0000004D E83800                  	call digit
+    47 00000050 E85100                  	call prnt
+    48 00000053 88F0                    	mov al, dh
+    49 00000055 E83000                  	call digit
+    50                                  	; date
+    51 00000058 BF2A01                  	mov di, 0x012a
+    52 0000005B B90100                  	mov cx, 0x1
+    53 0000005E 31C0                    	xor ax, ax
+    54 00000060 F3AB                    	rep stosw
+    55 00000062 BF2C01                  	mov di, 0x012c
+    56 00000065 B404                    	mov ah, 0x04
+    57 00000067 CD1A                    	int 0x1a
+    58 00000069 88D0                    	mov al, dl
+    59 0000006B E81A00                  	call digit
+    60 0000006E E83A00                  	call prnt2
+    61 00000071 88F0                    	mov al, dh
+    62 00000073 E81200                  	call digit
+    63 00000076 E83200                          call prnt2
+    64 00000079 88E8                    	mov al, ch
+    65 0000007B E80A00                  	call digit
+    66 0000007E 88C8                    	mov al, cl
+    67 00000080 E80500                  	call digit
+    68 00000083 9D                      	popf
+    69 00000084 1F                      	pop ds
+    70 00000085 07                      	pop es
+    71 00000086 61                      	popa
+    72 00000087 CF                      	iret
+    73                                  
+    74 00000088 88C4                    digit:	mov ah, al
+    75 0000008A 80E4F0                  	and ah, 0b11110000
+    76 0000008D 240F                    	and al, 0b00001111
+    77 0000008F C0EC04                  	shr ah, 4
+    78 00000092 80C430                  	add ah, '0'
+    79 00000095 0430                    	add al, '0'
+    80 00000097 50                      	push ax
+    81 00000098 88E0                    	mov al, ah
+    82 0000009A AA                      	stosb
+    83 0000009B B070                    	mov al, 0b01110000
+    84 0000009D AA                      	stosb
+    85 0000009E 58                      	pop ax
+    86 0000009F AA                      	stosb
+    87 000000A0 B070                    	mov al, 0b01110000
+    88 000000A2 AA                      	stosb
+    89 000000A3 C3                      	ret
+    90                                  
+    91 000000A4 B03A                    prnt:	mov al, ":"
+    92 000000A6 AA                      	stosb
+    93 000000A7 B0F0                    	mov al, 0xf0
+    94 000000A9 AA                      	stosb
+    95 000000AA C3                      	ret
+    96 000000AB B02E                    prnt2:	mov al, "."
+    97 000000AD AA                              stosb
+    98 000000AE B070                            mov al, 0b01110000
+    99 000000B0 AA                              stosb
+   100 000000B1 C3                              ret
+   101                                  
+   102                                  interrupts:
+   103 000000B2 [2700]                  	dw main

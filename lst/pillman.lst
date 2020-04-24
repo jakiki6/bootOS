@@ -1,0 +1,387 @@
+     1                                          ;
+     2                                          ; Pillman
+     3                                          ;
+     4                                          ; by Oscar Toledo G.
+     5                                          ; http://nanochess.org/
+     6                                          ;
+     7                                          ; (c) Copyright 2019 Oscar Toledo G.
+     8                                          ;
+     9                                          ; Creation date: Jun/11/2019.
+    10                                          ; Revision date: Jun/12/2019. Draws level.
+    11                                          ; Revision date: Jun/13/2019. Pillman can move.
+    12                                          ; Revision date: Jun/14/2019. Now ghosts don't get stuck. Ghost are
+    13                                          ;                             transparent. Pillman doesn't leave
+    14                                          ;                             trash.
+    15                                          ; Revision date: Jun/15/2019. Ghosts can catch pillman. Optimized.
+    16                                          ;                             509 bytes.
+    17                                          ; Revision date: Jul/09/2019. Self-modifying code, move subroutine,
+    18                                          ;                             cache routine address (Peter Ferrie).
+    19                                          ;                             504 bytes.
+    20                                          ; Revision date: Jul/22/2019. Added Esc key to exit.
+    21                                          ;
+    22                                  
+    23                                          cpu 8086
+    24                                  
+    25                                      %ifndef com_file            ; If not defined create a boot sector
+    26                                  com_file:       equ 0
+    27                                      %endif
+    28                                  
+    29                                  base:           equ 0xf9fe      ; Memory base (same segment as video)
+    30                                  intended_dir:   equ base+0x00   ; Next direction for player
+    31                                  frame:          equ base+0x01   ; Current video frame
+    32                                  x_player:       equ base+0x02   ; Saved X-coordinate of player
+    33                                  y_player:       equ ms6+0x01    ; Saved Y-coordinate of player
+    34                                  old_time:       equ base+0x06   ; Old time
+    35                                  
+    36                                          ;
+    37                                          ; Maze should start at x,y coordinate multiple of 8
+    38                                          ;
+    39                                  BASE_MAZE:      equ 16*X_OFFSET+32      
+    40                                  pos1:           equ BASE_MAZE+21*8*X_OFFSET
+    41                                  
+    42                                  X_OFFSET:       equ 0x0140
+    43                                  
+    44                                  MAZE_COLOR:     equ 0x37        ; No color should be higher or equal value
+    45                                  PILL_COLOR:     equ 0x02        ; Color for pill
+    46                                  PLAYER_COLOR:   equ 0x0e        ; Should be unique
+    47                                  
+    48                                          ;
+    49                                          ; XOR combination of these plus PILL_COLOR shouldn't
+    50                                          ; result in PLAYER_COLOR
+    51                                          ;
+    52                                  GHOST1_COLOR:   equ 0x21        ; Ghost 1 color
+    53                                  GHOST2_COLOR:   equ 0x2e        ; Ghost 2 color
+    54                                  GHOST3_COLOR:   equ 0x28        ; Ghost 3 color
+    55                                  GHOST4_COLOR:   equ 0x34        ; Ghost 4 color
+    56                                  
+    57                                      %if com_file
+    58                                          org 0x0100              ; Start address for COM file
+    59                                      %else
+    60                                          org 0x7c00              ; Start address for boot sector
+    61                                      %endif
+    62                                  restart:
+    63 00000000 B81300                          mov ax,0x0013           ; Set mode 0x13 (320x200x256 VGA)
+    64 00000003 CD10                            int 0x10                ; Call BIOS
+    65 00000005 FC                              cld
+    66 00000006 B800A0                          mov ax,0xa000           ; Video segment
+    67 00000009 8ED8                            mov ds,ax               ; Use as source data segment
+    68 0000000B 8EC0                            mov es,ax               ; Use as target data segment
+    69                                          ;
+    70                                          ; Draw the maze
+    71                                          ;
+    72 0000000D BE[C101]                        mov si,maze             ; SI = Address of maze data
+    73 00000010 BF2014                          mov di,BASE_MAZE        ; DI = Address for drawing maze
+    74                                  draw_maze_row:
+    75 00000013 2EAD                            cs lodsw                ; Load one word of data from Code Segment
+    76 00000015 91                              xchg ax,cx              ; Put into AX
+    77 00000016 BBF000                          mov bx,30*8             ; Offset of mirror position
+    78                                  draw_maze_col:
+    79 00000019 D1E1                            shl cx,1                ; Extract one tile of maze
+    80 0000001B B81837                          mov ax,MAZE_COLOR*0x0100+0x18   ; Carry = 0 = Wall
+    81 0000001E 7303                            jnc dm1                 ; If bit was zero, jump to dm1
+    82 00000020 B83802                          mov ax,PILL_COLOR*0x0100+0x38   ; Carry = 1 = Pill
+    83 00000023 E82200                  dm1:    call draw_sprite        ; Draw tile
+    84 00000026 01DF                            add di,bx               ; Go to mirror position
+    85 00000028 83EB10                          sub bx,16               ; Mirror finished?
+    86 0000002B 724F                            jc dm2                  ; Yes, jump
+    87 0000002D E81800                          call draw_sprite        ; Draw tile
+    88 00000030 29DF                            sub di,bx               ; Restore position
+    89 00000032 83EF08                          sub di,8                ; Advance tile
+    90 00000035 EBE2                            jmp draw_maze_col       ; Repeat until finished
+    91                                  
+    92                                          ;
+    93                                          ; Move ghost
+    94                                          ; bh = color
+    95                                          ;
+    96                                  move_ghost:
+    97 00000037 AD                              lodsw                   ; Load screen position
+    98 00000038 97                              xchg ax,di
+    99 00000039 AD                              lodsw                   ; Load direction
+   100 0000003A 84E4                            test ah,ah
+   101 0000003C 93                              xchg ax,bx              ; Color now in ah
+   102 0000003D B030                            mov al,0x30
+   103 0000003F 50                              push ax
+   104 00000040 C644FF02                        mov byte [si-1],0x02    ; Remove first time setup flag
+   105 00000044 E8AE00                          call move_sprite3
+   106 00000047 58                              pop ax
+   107                                          ;
+   108                                          ; Draw the sprite/tile
+   109                                          ;
+   110                                          ; ah = sprite color
+   111                                          ; al = sprite (x8)
+   112                                          ; di = Target address
+   113                                  draw_sprite:
+   114 00000048 50                              push ax
+   115 00000049 53                              push bx
+   116 0000004A 51                              push cx
+   117 0000004B 57                              push di
+   118 0000004C 50                      ds0:    push ax
+   119 0000004D BB[7901]                        mov bx,bitmaps-8
+   120 00000050 2ED7                            cs xlat                 ; Extract one byte from bitmap
+   121 00000052 93                              xchg ax,bx
+   122 00000053 B90800                          mov cx,8               
+   123 00000056 88F8                    ds1:    mov al,bh
+   124 00000058 D0E3                            shl bl,1                ; Extract one bit 
+   125 0000005A 7202                            jc ds2
+   126 0000005C 31C0                            xor ax,ax               ; Background color
+   127                                  ds2:
+   128 0000005E 80FF10                          cmp bh,0x10             ; Color < 0x10
+   129 00000061 7207                            jc ds4                  ; Yes, jump
+   130 00000063 803D0E                          cmp byte [di],PLAYER_COLOR      ; "Eats" player?
+   131 00000066 7498                            je restart              ; Yes, it should crash after several hundred games
+   132                                  ds3:
+   133 00000068 3205                            xor al,[di]             ; XOR ghost again pixel
+   134                                  ds4:
+   135 0000006A AA                              stosb
+   136 0000006B E2E9                            loop ds1
+   137 0000006D 81C73801                        add di,X_OFFSET-8       ; Go to next video line
+   138 00000071 58                              pop ax
+   139 00000072 40                              inc ax                  ; Next bitmap byte
+   140 00000073 A807                            test al,7               ; Sprite complete?
+   141 00000075 75D5                            jne ds0                 ; No, jump
+   142 00000077 5F                              pop di
+   143 00000078 59                              pop cx
+   144 00000079 5B                              pop bx
+   145 0000007A 58                              pop ax
+   146 0000007B C3                              ret
+   147                                  
+   148                                  dm2:   
+   149 0000007C 81C78809                        add di,X_OFFSET*8-15*8  ; Go to next row
+   150 00000080 81FE[EB01]                      cmp si,setup_data       ; Maze completed?
+   151 00000084 758D                            jne draw_maze_row       ; No, jump
+   152                                  
+   153                                          ;
+   154                                          ; Setup characters
+   155                                          ;
+   156                                          ; CX is zero at this point
+   157                                          ; DI is equal to pos1 at this point
+   158                                         ;mov di,pos1
+   159 00000086 B105                            mov cl,5                ; 5 elements (player + ghosts)
+   160 00000088 B80200                          mov ax,2                ; Going to right
+   161                                  dm3:
+   162 0000008B 2EA5                            cs movsw                ; Copy position from Code Segment
+   163 0000008D AB                              stosw                   ; Store desired direction
+   164 0000008E E2FB                            loop dm3                ; Loop
+   165                                  
+   166                                          ;
+   167                                          ; Main game loop
+   168                                          ;
+   169                                  game_loop:
+   170 00000090 B400                            mov ah,0x00
+   171 00000092 CD1A                            int 0x1a                ; BIOS clock read
+   172 00000094 3B1604FA                        cmp dx,[old_time]       ; Wait for time change
+   173 00000098 74F6                            je game_loop
+   174 0000009A 891604FA                        mov [old_time],dx       ; Save new time
+   175                                  
+   176 0000009E B401                            mov ah,0x01             ; BIOS Key available
+   177 000000A0 CD16                            int 0x16
+   178 000000A2 B400                            mov ah,0x00             ; BIOS Read Key
+   179 000000A4 7402                            je no_key
+   180 000000A6 CD16                            int 0x16
+   181                                  no_key:
+   182 000000A8 88E0                            mov al,ah
+   183 000000AA 3C01                            cmp al,0x01             ; Esc key
+   184 000000AC 7502                            jne no_esc
+   185 000000AE CD20                            int 0x20
+   186                                  no_esc:
+   187 000000B0 2C48                            sub al,0x48             ; Code for arrow up?
+   188 000000B2 720C                            jc no_key2              ; Out of range, jump.
+   189 000000B4 3C09                            cmp al,0x09             ; Farther than arrow down?
+   190 000000B6 7308                            jnc no_key2             ; Out of range, jump.
+   191 000000B8 BB[F501]                        mov bx,dirs
+   192 000000BB 2ED7                            cs xlat                 ; Translate direction to internal code
+   193 000000BD A2FEF9                          mov [intended_dir],al   ; Save as desired direction
+   194                                  no_key2:
+   195 000000C0 BE20E6                          mov si,pos1             ; SI points to data for player
+   196 000000C3 AD                              lodsw                   ; Load screen position
+   197 000000C4 97                              xchg ax,di
+   198 000000C5 AD                              lodsw                   ; Load direction/type
+   199 000000C6 93                              xchg ax,bx
+   200 000000C7 31C0                            xor ax,ax               ; Delete pillman
+   201 000000C9 E82B00                          call move_sprite2       ; Move
+   202 000000CC 8036FFF980                      xor byte [frame],0x80   ; Alternate frame
+   203 000000D1 B8280E                          mov ax,0x0e28           ; Closed mouth
+   204 000000D4 7807                            js close_mouth          ; Jump if sign set.
+   205 000000D6 A022E6                          mov al,[pos1+2]         ; Using current direction
+   206 000000D9 B103                            mov cl,3                ; Multiply by 8
+   207 000000DB D2E0                            shl al,cl               ; Show open mouth
+   208                                  close_mouth:
+   209 000000DD E868FF                          call draw_sprite        ; Draw
+   210                                          ;
+   211                                          ; Move ghosts
+   212                                          ;
+   213 000000E0 BD[3700]                        mov bp, move_ghost
+   214 000000E3 B721                            mov bh,GHOST1_COLOR
+   215 000000E5 FFD5                            call bp
+   216 000000E7 B72E                            mov bh,GHOST2_COLOR
+   217 000000E9 FFD5                            call bp
+   218 000000EB B728                            mov bh,GHOST3_COLOR
+   219 000000ED FFD5                            call bp
+   220 000000EF B734                            mov bh,GHOST4_COLOR
+   221 000000F1 FFD5                            call bp
+   222 000000F3 EB9B                            jmp game_loop           
+   223                                  
+   224                                          ;
+   225                                          ; DI = address on the screen
+   226                                          ; BL = wanted direction
+   227                                          ;
+   228                                  move_sprite3:        
+   229 000000F5 7403                            je move_sprite          ; If zero, won't remove first time
+   230                                  move_sprite2:
+   231 000000F7 E84EFF                          call draw_sprite        ; Remove ghost
+   232                                  move_sprite:
+   233 000000FA 89F8                            mov ax,di               ; Prepare to extract pixel row/column
+   234 000000FC 31D2                            xor dx,dx
+   235 000000FE B94001                          mov cx,X_OFFSET
+   236 00000101 F7F1                            div cx
+   237                                                                  ; Now AX = Row, DX = Column
+   238 00000103 88D4                            mov ah,dl
+   239 00000105 08C4                            or ah,al
+   240 00000107 80E407                          and ah,7                ; Both aligned at 8 pixels?
+   241 0000010A 755A                            jne ms0                 ; No, jump because cannot change direction.
+   242                                          ; AH is zero already
+   243                                         ;mov ah,0
+   244                                          ;
+   245                                          ; Get available directions
+   246                                          ;
+   247 0000010C B537                            mov ch,MAZE_COLOR
+   248 0000010E 386DFF                          cmp [di-0x0001],ch      ; Left
+   249 00000111 10E4                            adc ah,ah               ; AH = 0000 000L
+   250 00000113 38AD000A                        cmp [di+X_OFFSET*8],ch  ; Down
+   251 00000117 10E4                            adc ah,ah               ; AH = 0000 00LD
+   252 00000119 386D08                          cmp [di+0x0008],ch      ; Right
+   253 0000011C 10E4                            adc ah,ah               ; AH = 0000 0LDR
+   254 0000011E 38ADC0FE                        cmp [di-X_OFFSET],ch    ; Up
+   255 00000122 10E4                            adc ah,ah               ; AH = 0000 LDRU
+   256                                  
+   257 00000124 84FF                            test bh,bh              ; Is it pillman?
+   258 00000126 742B                            je ms4                  ; Yes, jump
+   259                                  
+   260                                          ;
+   261                                          ; Ghost
+   262                                          ;
+   263 00000128 F6C305                          test bl,0x05            ; Test BL for .... .D.U
+   264 0000012B 740C                            je ms6                  ; No, jump
+   265                                          ; Current direction is up/down
+   266 0000012D 3B1600FA                        cmp dx,[x_player]       ; Compare X coordinate with player
+   267 00000131 B002                            mov al,0x02             ; Go right
+   268 00000133 720C                            jc ms8                  ; Jump if X ghost < X player
+   269 00000135 B008                            mov al,0x08             ; Go left
+   270 00000137 EB08                            jmp ms8
+   271                                  
+   272                                          ; Current direction is left/right
+   273 00000139 3C00                    ms6:    cmp al,0x00             ; (SMC) Compare Y coordinate with player
+   274 0000013B B004                            mov al,0x04             ; Go down
+   275 0000013D 7202                            jc ms8                  ; Jump if Y ghost < Y player
+   276 0000013F B001                            mov al,0x01             ; Go up
+   277                                  ms8:
+   278 00000141 84C4                            test ah,al              ; Can it go in intended direction?
+   279 00000143 7523                            jne ms1                 ; Yes, go in direction
+   280                                  
+   281 00000145 88D8                            mov al,bl
+   282 00000147 84C4                    ms9:    test ah,al              ; Can it go in current direction?
+   283 00000149 751D                            jne ms1                 ; Yes, jump
+   284 0000014B D0E8                            shr al,1                ; Try another direction
+   285 0000014D 75F8                            jne ms9
+   286 0000014F B008                            mov al,0x08             ; Cycle direction
+   287 00000151 EBF4                            jmp ms9
+   288                                  
+   289                                          ;
+   290                                          ; Pillman
+   291                                          ;
+   292                                  ms4:
+   293 00000153 891600FA                        mov [x_player],dx       ; Save current X coordinate
+   294 00000157 2EA2[3A01]                      cs mov [y_player],al    ; Save current Y coordinate
+   295                                  
+   296 0000015B A0FEF9                          mov al,[intended_dir]
+   297 0000015E 84C4                            test ah,al              ; Can it go in intended direction?
+   298 00000160 7506                            jne ms1                 ; Yes, go in that direction
+   299                                  
+   300 00000162 20DC                    ms5:    and ah,bl               ; Can it go in current direction?
+   301 00000164 741A                            je ms2                  ; No, stops
+   302                                  
+   303 00000166 88D8                    ms0:    mov al,bl
+   304                                  
+   305 00000168 8844FE                  ms1:    mov [si-2],al           ; Save new direction
+   306 0000016B A805                            test al,5               ; If going up/down...
+   307 0000016D BB80FD                          mov bx,-X_OFFSET*2      ; ...bx = vertical movement
+   308 00000170 7503                            jne ms3
+   309 00000172 BB0200                          mov bx,1*2              ; ...bx = horizontal movement
+   310                                  ms3:
+   311 00000175 A80C                            test al,12
+   312 00000177 7402                            je ms7
+   313 00000179 F7DB                            neg bx                  ; Reverse direction
+   314                                  ms7:
+   315 0000017B 01DF                            add di,bx               ; Do move
+   316 0000017D 897CFC                          mov [si-4],di           ; Save the new screen position
+   317                                  ms2:
+   318 00000180 C3                              ret
+   319                                  
+   320                                          ;
+   321                                          ; Game bitmaps
+   322                                          ;
+   323                                  bitmaps:
+   324 00000181 0042E7E7FFFF7E3C                db 0x00,0x42,0xe7,0xe7,0xff,0xff,0x7e,0x3c      ; dir = 1
+   325 00000189 3C7EFCF0F0FC7E3C                db 0x3c,0x7e,0xfc,0xf0,0xf0,0xfc,0x7e,0x3c      ; dir = 2
+   326 00000191 FFFFFFFFFFFFFFFF                db 0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff      ; Maze
+   327 00000199 3C7EFFFFE7E74200                db 0x3c,0x7e,0xff,0xff,0xe7,0xe7,0x42,0x00      ; dir = 4
+   328 000001A1 3C7EFFFFFFFF7E3C                db 0x3c,0x7e,0xff,0xff,0xff,0xff,0x7e,0x3c      ; Closed mouth
+   329 000001A9 3C7EDBDBFFFFFFA5                db 0x3c,0x7e,0xdb,0xdb,0xff,0xff,0xff,0xa5      ; Ghost
+   330 000001B1 0000001818000000                db 0x00,0x00,0x00,0x18,0x18,0x00,0x00,0x00      ; Pill
+   331 000001B9 3C7E3F0F0F3F7E3C                db 0x3c,0x7e,0x3f,0x0f,0x0f,0x3f,0x7e,0x3c      ; dir = 8
+   332                                  
+   333                                          ;
+   334                                          ; Maze shape
+   335                                          ;
+   336                                  maze:
+   337 000001C1 0000                            dw 0b0000_0000_0000_0000
+   338 000001C3 FE7F                            dw 0b0111_1111_1111_1110
+   339 000001C5 0242                            dw 0b0100_0010_0000_0010
+   340 000001C7 0242                            dw 0b0100_0010_0000_0010
+   341 000001C9 FF7F                            dw 0b0111_1111_1111_1111
+   342 000001CB 4042                            dw 0b0100_0010_0100_0000
+   343 000001CD 7E7E                            dw 0b0111_1110_0111_1110
+   344 000001CF 0202                            dw 0b0000_0010_0000_0010
+   345 000001D1 7F02                            dw 0b0000_0010_0111_1111
+   346 000001D3 C003                            dw 0b0000_0011_1100_0000
+   347 000001D5 4002                            dw 0b0000_0010_0100_0000
+   348 000001D7 7F02                            dw 0b0000_0010_0111_1111
+   349 000001D9 4002                            dw 0b0000_0010_0100_0000
+   350 000001DB FE7F                            dw 0b0111_1111_1111_1110
+   351 000001DD 0242                            dw 0b0100_0010_0000_0010
+   352 000001DF FF7B                            dw 0b0111_1011_1111_1111
+   353 000001E1 400A                            dw 0b0000_1010_0100_0000
+   354 000001E3 7E7E                            dw 0b0111_1110_0111_1110
+   355 000001E5 0240                            dw 0b0100_0000_0000_0010
+   356 000001E7 FF7F                            dw 0b0111_1111_1111_1111
+   357 000001E9 0000                            dw 0b0000_0000_0000_0000
+   358                                  
+   359                                          ;
+   360                                          ; Starting positions
+   361                                          ; 
+   362                                  setup_data:
+   363 000001EB 98AA                            dw BASE_MAZE+0x78*X_OFFSET+0x78
+   364 000001ED 9050                            dw BASE_MAZE+0x30*X_OFFSET+0x70
+   365 000001EF 9864                            dw BASE_MAZE+0x40*X_OFFSET+0x78
+   366 000001F1 A03C                            dw BASE_MAZE+0x20*X_OFFSET+0x80
+   367 000001F3 A850                            dw BASE_MAZE+0x30*X_OFFSET+0x88
+   368                                  
+   369                                          ;
+   370                                          ; Convert arrow codes to internal directions
+   371                                          ;
+   372                                  dirs:
+   373 000001F5 01                              db 0x01         ; 0x48 = Up arrow
+   374 000001F6 00                              db 0x00
+   375 000001F7 00                              db 0x00
+   376 000001F8 08                              db 0x08         ; 0x4b = Left arrow
+   377 000001F9 00                              db 0x00
+   378 000001FA 02                              db 0x02         ; 0x4d = Right arrow
+   379 000001FB 00                              db 0x00
+   380 000001FC 00                              db 0x00
+   381 000001FD 04                              db 0x04         ; 0x50 = Down arrow
+   382                                  
+   383                                      %if com_file
+   384                                      %else
+   385                                          times 510-($-$$) db 0x4f
+   386 000001FE 55AA                            db 0x55,0xaa            ; Make it a bootable sector
+   387                                      %endif

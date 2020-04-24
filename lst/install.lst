@@ -1,0 +1,36 @@
+     1                                  org 0x7c00
+     2                                  cs_command:
+     3 00000000 B040                            mov al, "@"
+     4 00000002 E83500                          call input_line
+     5 00000005 E81F00                          call xdigit             ; Get a hexadecimal digit
+     6 00000008 B104                            mov cl,4
+     7 0000000A D2E0                            shl al,cl
+     8 0000000C 91                              xchg ax,cx
+     9 0000000D E81700                          call xdigit             ; Get a hexadecimal digit
+    10 00000010 08C8                            or al,cl
+    11 00000012 50                      	push ax
+    12 00000013 31C0                    	xor ax, ax
+    13 00000015 8EC0                    	mov es, ax    ; ES <- 0
+    14 00000017 B90100                  	mov cx, 0x0001
+    15 0000001A 5A                      	pop dx
+    16 0000001B 30F6                    	xor dh, dh
+    17 0000001D BB007A                  	mov bx, 0x7a00; segment offset of the buffer
+    18 00000020 B80103                  	mov ax, 0x0301; AH = 03 (disk write), AL = 01 (number of sectors to write)
+    19 00000023 CD13                    	int 13h
+    20 00000025 CD20                    	int 0x20
+    21                                  xdigit:  
+    22 00000027 AC                              lodsb
+    23 00000028 3C00                            cmp al,0x00             ; Zero character marks end of line
+    24 0000002A 740D                            je r
+    25 0000002C 2C30                            sub al,0x30             ; Avoid spaces (anything below ASCII 0x30)
+    26 0000002E 72F7                            jc xdigit
+    27 00000030 3C0A                            cmp al,0x0a
+    28 00000032 7205                            jc r
+    29 00000034 2C07                            sub al,0x07
+    30 00000036 240F                            and al,0x0f   
+    31 00000038 F9                              stc
+    32                                  r:
+    33 00000039 C3                              ret
+    34                                  input_line:   
+    35 0000003A CD26                            int 0x26
+    36 0000003C C3                      	ret

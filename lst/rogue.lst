@@ -1,0 +1,521 @@
+     1                                          ;
+     2                                          ; bootRogue game in 512 bytes (boot sector)
+     3                                          ;
+     4                                          ; by Oscar Toledo G.
+     5                                          ; http://nanochess.org/
+     6                                          ;
+     7                                          ; (c) Copyright 2019 Oscar Toledo G.
+     8                                          ;
+     9                                          ; Creation date: Sep/19/2019. Generates room boxes.
+    10                                          ; Revision date: Sep/20/2019. Connect rooms. Allows to navigate.
+    11                                          ; Revision date: Sep/21/2019. Added ladders to go down/up. Shows
+    12                                          ;                             Amulet of Yendor at level 26. Added
+    13                                          ;                             circle of light.
+    14                                          ; Revision date: Sep/22/2019. Creates monsters and items. Now has
+    15                                          ;                             hp/exp. Food, armor, weapon, and traps
+    16                                          ;                             works. Added battles. 829 bytes.
+    17                                          ; Revision date: Sep/23/2019. Lots of optimization. 643 bytes.
+    18                                          ; Revision date: Sep/24/2019. Again lots of optimization. 596 bytes.
+    19                                          ; Revision date: Sep/25/2019. Many optimizations. 553 bytes.
+    20                                          ; Revision date: Sep/26/2019. The final effort. 510 bytes.
+    21                                          ; Revision date: Sep/27/2019. The COM file exits to DOS instead of halting.
+    22                                          ;
+    23                                  
+    24                                          CPU 8086
+    25                                  
+    26                                  ROW_WIDTH:      EQU 0x00A0      ; Width in bytes of each video row
+    27                                  BOX_MAX_WIDTH:  EQU 23          ; Max width of a room box
+    28                                  BOX_MAX_HEIGHT: EQU 6           ; Max height of a room box
+    29                                  BOX_WIDTH:      EQU 26          ; Width of box area in screen
+    30                                  BOX_HEIGHT:     EQU 8           ; Height of box area in screen
+    31                                  
+    32                                          ; See page 45 of my book
+    33                                  LIGHT_COLOR:    EQU 0x06        ; Light color (brown, dark yellow on emu)        
+    34                                  HERO_COLOR:     EQU 0x0e        ; Hero color (yellow)
+    35                                  
+    36                                          ; See page 179 of my book
+    37                                  GR_VERT:        EQU 0xba        ; Vertical line graphic
+    38                                  GR_TOP_RIGHT:   EQU 0xbb        ; Top right graphic
+    39                                  GR_BOT_RIGHT:   EQU 0xbc        ; Bottom right graphic
+    40                                  GR_BOT_LEFT:    EQU 0xc8        ; Bottom left graphic
+    41                                  GR_TOP_LEFT:    EQU 0xc9        ; Top left graphic
+    42                                  GR_HORIZ:       EQU 0xcd        ; Horizontal line graphic
+    43                                  
+    44                                  GR_TUNNEL:      EQU 0xb1        ; Tunnel graphic (shaded block)
+    45                                  GR_DOOR:        EQU 0xce        ; Door graphic (crosshair graphic)
+    46                                  GR_FLOOR:       EQU 0xfa        ; Floor graphic (middle point)
+    47                                  
+    48                                  GR_HERO:        EQU 0x01        ; Hero graphic (smiling face)
+    49                                  
+    50                                  GR_LADDER:      EQU 0xf0        ; Ladder graphic 
+    51                                  GR_TRAP:        EQU 0x04        ; Trap graphic (diamond)
+    52                                  GR_FOOD:        EQU 0x05        ; Food graphic (clover)
+    53                                  GR_ARMOR:       EQU 0x08        ; Armor graphic (square with hole in center)
+    54                                  GR_YENDOR:      EQU 0x0c        ; Amulet of Yendor graphic (Female sign)
+    55                                  GR_GOLD:        EQU 0x0f        ; Gold graphic (asterisk, like brightness)
+    56                                  GR_WEAPON:      EQU 0x18        ; Weapon graphic (up arrow)
+    57                                  
+    58                                  YENDOR_LEVEL:   EQU 26          ; Level of appearance for Amulet of Yendor
+    59                                  
+    60                                      %ifdef com_file
+    61                                          org 0x0100
+    62                                      %else
+    63                                          org 0x7c00
+    64                                      %endif
+    65                                  
+    66                                          ;
+    67                                          ; Sorted by order of PUSH instructions
+    68                                          ;
+    69                                  rnd:    equ 0x0008      ; Random seed (used 4 times)
+    70                                  starve: equ 0x0006      ; Starve counter (used once)
+    71                                  hp:     equ 0x0004      ; Current HP (used 2 times)
+    72                                  level:  equ 0x0003      ; Current level (starting at 0x01) (used 3 times)
+    73                                  yendor: equ 0x0002      ; 0x01 = Not found. 0xff = Found. (Used 2 times)
+    74                                  armor:  equ 0x0001      ; Armor level (used 2 times)
+    75                                  weapon: equ 0x0000      ; Weapon level (used 2 times)
+    76                                  
+    77                                          ;
+    78                                          ; Start of the adventure!
+    79                                          ;
+    80                                  start:
+    81 00000000 E540                            in ax,0x40      ; Read timer counter
+    82 00000002 50                              push ax         ; Setup pseudorandom number generator
+    83 00000003 B81000                          mov ax,16
+    84 00000006 50                              push ax         ; starve
+    85 00000007 50                              push ax         ; hp
+    86 00000008 B001                            mov al,1
+    87 0000000A 50                              push ax         ; yendor (low byte) + level (high byte)
+    88 0000000B 50                              push ax         ; weapon (low byte) + armor (high byte)
+    89 0000000C 40                              inc ax          ; ax = 0x0002 (it was 0x0001)
+    90 0000000D CD10                            int 0x10
+    91 0000000F B800B8                          mov ax,0xb800   ; Text video segment
+    92 00000012 8ED8                            mov ds,ax
+    93 00000014 8EC0                            mov es,ax
+    94                                  
+    95 00000016 BE[E701]                        mov si,random   ; SI as a space saver for CALL
+    96                                  
+    97 00000019 89E5                            mov bp,sp       ; Using BP because it implies SS and vars are on stack.
+    98                                  
+    99                                  generate_dungeon:
+   100                                  
+   101                                          ;
+   102                                          ; Advance to next level (can go deeper or higher)
+   103                                          ;
+   104 0000001B 8A5E02                          mov bl,[bp+yendor]
+   105 0000001E 005E03                          add [bp+level],bl
+   106                                      %ifdef com_file
+   107                                          jne .0
+   108                                          jmp quit        ; Stop if level zero is reached
+   109                                  .0:
+   110                                      %else
+   111 00000021 74FE                            je $            ; Stop if level zero is reached
+   112                                      %endif
+   113                                  
+   114                                          ;
+   115                                          ; Select a maze for the dungeon
+   116                                          ;
+   117                                          ; There are many combinations of values that generate at least
+   118                                          ; 16 mazes in order to avoid a table.
+   119                                          ;
+   120 00000023 8B4608                          mov ax,[bp+rnd]        
+   121 00000026 258241                          and ax,0x4182
+   122 00000029 0D6D1A                          or ax,0x1a6d
+   123 0000002C 92                              xchg ax,dx
+   124                                  
+   125                                          ;
+   126                                          ; Clean the screen to black over black (it hides the maze)
+   127                                          ;
+   128 0000002D 31C0                            xor ax,ax
+   129 0000002F 31FF                            xor di,di
+   130 00000031 B508                            mov ch,0x08
+   131 00000033 F3AB                            rep stosw
+   132                                  
+   133                                          ;
+   134                                          ; Draw the nine rooms
+   135                                          ;
+   136                                  .7:
+   137 00000035 50                              push ax
+   138 00000036 E80901                          call fill_room
+   139 00000039 58                              pop ax
+   140 0000003A 83C034                          add ax,BOX_WIDTH*2
+   141 0000003D 3C9C                            cmp al,0x9c             ; Finished drawing three rooms?
+   142 0000003F 7503                            jne .6                  ; No, jump
+   143                                                                  ; Yes, go to following row
+   144 00000041 056404                          add ax,ROW_WIDTH*BOX_HEIGHT-BOX_WIDTH*3*2
+   145                                  .6:
+   146 00000044 3D000F                          cmp ax,ROW_WIDTH*BOX_HEIGHT*3
+   147 00000047 72EC                            jb .7
+   148                                  
+   149                                          ;
+   150                                          ; Put the ladder at a random corner room
+   151                                          ;
+   152 00000049 D16608                          shl word [bp+rnd],1
+   153 0000004C B8F801                          mov ax,3*ROW_WIDTH+12*2       
+   154 0000004F BBF80B                          mov bx,19*ROW_WIDTH+12*2        
+   155 00000052 7301                            jnc .2
+   156 00000054 93                              xchg ax,bx
+   157 00000055 7903                    .2:     jns .8
+   158 00000057 83C068                          add ax,BOX_WIDTH*2*2
+   159                                  .8:
+   160 0000005A 97                              xchg ax,di
+   161                                  
+   162 0000005B C605F0                          mov byte [di],GR_LADDER
+   163                                  
+   164                                          ;
+   165                                          ; If a deep level has been reached then put the Amulet of Yendor
+   166                                          ;
+   167 0000005E 807E031A                        cmp byte [bp+level],YENDOR_LEVEL
+   168 00000062 7203                            jb .1
+   169 00000064 C6070C                          mov byte [bx],GR_YENDOR
+   170                                  .1:
+   171                                          ;
+   172                                          ; Setup hero start
+   173                                          ;
+   174 00000067 BF2C07                          mov di,11*ROW_WIDTH+38*2
+   175                                          ;
+   176                                          ; Main game loop
+   177                                          ;
+   178                                  game_loop:
+   179 0000006A CD27                    	int 0x27
+   180 0000006C B8[6A00]                        mov ax,game_loop        ; Force to repeat, the whole loop...
+   181 0000006F 50                              push ax                 ; ...ends with ret.
+   182                                  
+   183                                          ;
+   184                                          ; Circle of light around the player (3x3)
+   185                                          ;
+   186 00000070 BB0500                          mov bx,0x0005                   ; BX values
+   187 00000073 4B                      .1:     dec bx
+   188 00000074 4B                              dec bx                          ; -1 1 3 -0x00a0
+   189 00000075 B006                            mov al,LIGHT_COLOR     
+   190 00000077 888160FF                        mov [bx+di-ROW_WIDTH],al        ; -1(1)3 
+   191 0000007B 8801                            mov [bx+di],al                      
+   192 0000007D 8881A000                        mov [bx+di+ROW_WIDTH],al        ; -1 1 3 +0x00a0
+   193 00000081 79F0                            jns .1
+   194                                  
+   195                                          ;
+   196                                          ; Show our hero
+   197                                          ;
+   198 00000083 FF35                            push word [di]          ; Save character and attribute under 
+   199 00000085 C705010E                        mov word [di],HERO_COLOR*256+GR_HERO
+   200 00000089 80460602                        add byte [bp+starve],2  ; Cannot use INC because it needs Carry set
+   201 0000008D 19C0                            sbb ax,ax               ; HP down 1 every 128 steps
+   202 0000008F E86400                          call add_hp             ; Update stats
+   203                                      ;   mov ah,0x00             ; Comes here with ah = 0
+   204 00000092 CD16                            int 0x16                ; Read keyboard
+   205 00000094 8F05                            pop word [di]           ; Restore character and attribute under 
+   206                                  
+   207 00000096 88E0                            mov al,ah
+   208                                      %ifdef com_file
+   209                                          cmp al,0x01
+   210                                          je quit                 ; Exit if Esc key is pressed
+   211                                      %endif
+   212                                  
+   213 00000098 2C4C                            sub al,0x4c
+   214 0000009A B402                            mov ah,0x02             ; Left/right multiplies by 2
+   215 0000009C 3CFF                            cmp al,0xff             ; Going left (scancode 0x4b)
+   216 0000009E 740E                            je .2
+   217 000000A0 3C01                            cmp al,0x01             ; Going right (scancode 0x4d)
+   218 000000A2 740A                            je .2
+   219 000000A4 3CFC                            cmp al,0xfc             ; Going up (scancode 0x48)
+   220 000000A6 7404                            je .3
+   221 000000A8 3C04                            cmp al,0x04             ; Going down (scancode 0x50)
+   222 000000AA 7537                            jne move_cancel
+   223                                  .3:
+   224 000000AC B428                            mov ah,0x28             ; Up/down multiplies by 40
+   225                                  .2:
+   226 000000AE F6EC                            imul ah                 ; Signed multiplication
+   227                                  
+   228 000000B0 93                              xchg ax,bx              ; bx = displacement offset
+   229 000000B1 8A01                            mov al,[di+bx]          ; Read the target contents
+   230                                          ;
+   231                                          ; All the things that can exist on screen start with GR_* (17 things)
+   232                                          ; So no need to account for all cases.
+   233                                          ; We won't ever find GR_HERO so there are 16 things to look for.
+   234                                          ;
+   235 000000B3 3CF0                            cmp al,GR_LADDER        ; GR_LADDER?
+   236 000000B5 742D                            je ladder_found
+   237                                          ; 15 things to look for (plus zero and monsters)
+   238                                          ; Anything > GR_TUNNEL and < GR_DOOR is a wall 
+   239 000000B7 3CCE                            cmp al,GR_DOOR          ; GR_DOOR?
+   240 000000B9 7304                            jnc .4
+   241 000000BB 3CB1                            cmp al,GR_TUNNEL        ; GR_TUNNEL?
+   242 000000BD 7724                            ja move_cancel
+   243                                  .4:
+   244                                          ; 9 things to look for (plus zero and monsters)
+   245 000000BF 3C04                            cmp al,GR_TRAP          ; GR_TRAP?
+   246 000000C1 7220                            jb move_cancel          ; < it must be blank, cancel movement
+   247                                          ; Move player
+   248 000000C3 8D39                            lea di,[di+bx]          ; Do move.
+   249 000000C5 B706                            mov bh,0x06             ; Random range for GR_FOOD and GR_TRAP
+   250 000000C7 7426                            je trap_found           ; = Yes, went over trap
+   251                                          ; 8 things to look for (plus monsters)
+   252 000000C9 3CB1                            cmp al,GR_TUNNEL        ; GR_TUNNEL+GR_DOOR+GR_FLOOR ?
+   253 000000CB 7316                            jnc move_cancel         ; Yes, jump.
+   254 000000CD 3C18                            cmp al,GR_WEAPON        ; GR_WEAPON?
+   255 000000CF 774D                            ja battle               ; > it's a monster, so go to battle
+   256                                          ; Only items at this part of code, so clean floor
+   257 000000D1 C605FA                          mov byte [di],GR_FLOOR  ; Delete item from floor
+   258 000000D4 7415                            je weapon_found         ; = weapon found
+   259                                          ; 4 things to look for
+   260 000000D6 3C08                            cmp al,GR_ARMOR         ; GR_ARMOR?
+   261 000000D8 740D                            je armor_found          ; Yes, increase armor
+   262 000000DA 7218                            jb food_found           ; < it's GR_FOOD, increase hp
+   263                                          ; 2 things to look for
+   264 000000DC 3C0F                            cmp al,GR_GOLD          ; GR_GOLD?
+   265 000000DE 7403                            je move_cancel          ; Yes, simply take it.
+   266                                          ; At this point 'al' can only be GR_YENDOR
+   267                                          ; Amulet of Yendor found!
+   268 000000E0 F65E02                          neg byte [bp+yendor]    ; Now player goes upwards over ladders.
+   269                                  move_cancel:
+   270 000000E3 C3                              ret                     ; Return to main loop.
+   271                                  
+   272                                      %ifdef com_file
+   273                                  quit:
+   274                                          int 0x20
+   275                                      %endif
+   276                                  
+   277                                          ;
+   278                                          ;     I--
+   279                                          ;   I--
+   280                                          ; I--
+   281                                          ;
+   282                                  ladder_found:
+   283 000000E4 E934FF                          jmp generate_dungeon
+   284                                  
+   285                                          ; ______
+   286                                          ; I    I
+   287                                          ; I #X I
+   288                                          ; I X# I
+   289                                          ;  \__/
+   290                                          ;   
+   291                                  armor_found:
+   292 000000E7 FE4601                          inc byte [bp+armor]     ; Increase armor level
+   293 000000EA C3                              ret
+   294                                  
+   295                                          ;
+   296                                          ;       /| _____________
+   297                                          ; (|===|oo>_____________>
+   298                                          ;       \|
+   299                                          ;
+   300                                  weapon_found:
+   301 000000EB FE4600                          inc byte [bp+weapon]    ; Increase weapon level
+   302 000000EE C3                              ret
+   303                                  
+   304                                          ;
+   305                                          ; Aaaarghhhh!
+   306                                          ;
+   307                                  trap_found:
+   308 000000EF FFD6                            call si                 ; Random 1-6
+   309 000000F1 F7D8                    sub_hp: neg ax                  ; Make it negative
+   310 000000F3 BB                              db 0xbb                 ; MOV BX to jump two bytes
+   311                                          ;
+   313                                          ;     /--        ; ====    I
+   314                                          ;     \--/
+   315                                          ;
+   316                                  food_found:
+   317 000000F4 FFD6                            call si                 ; Random 1-6
+   318                                  
+   319 000000F6 034604                  add_hp: add ax,[bp+hp]          ; Add to current HP
+   320                                      %ifdef com_file
+   321                                          js quit                 ; Exit if Esc key is pressed
+   322                                      %else
+   323 000000F9 78FE                            js $                    ; Stall if dead
+   324                                      %endif
+   325 000000FB 894604                          mov [bp+hp],ax          ; Update HP.
+   326                                          ;
+   327                                          ; Update screen indicator
+   328                                          ;
+   329 000000FE BB980F                          mov bx,0x0f98           ; Point to bottom right corner
+   330 00000101 E80300                          call .1
+   331                                      %ifdef com_file
+   332                                          mov al,[bp+weapon]
+   333                                          call .1
+   334                                          mov al,[bp+armor]
+   335                                          call .1
+   336                                      %endif
+   337 00000104 8A4603                          mov al,[bp+level]
+   338                                  .1:
+   339 00000107 31C9                            xor cx,cx               ; CX = Quotient
+   340 00000109 41                      .2:     inc cx
+   341 0000010A 83E80A                          sub ax,10               ; Division by subtraction
+   342 0000010D 73FA                            jnc .2
+   343 0000010F 053A0A                          add ax,0x0a3a           ; Convert remainder to ASCII digit + color
+   344 00000112 E80400                          call .3                 ; Put on screen
+   345 00000115 91                              xchg ax,cx
+   346 00000116 48                              dec ax                  ; Quotient is zero?
+   347 00000117 75EE                            jnz .1                  ; No, jump to show more digits.
+   348                                  
+   349 00000119 8907                    .3:     mov [bx],ax
+   350 0000011B 4B                              dec bx
+   351 0000011C 4B                              dec bx
+   352 0000011D C3                              ret
+   353                                  
+   354                                          ;
+   355                                          ; Let's battle!!!
+   356                                          ;
+   357                                  battle:
+   358 0000011E 241F                            and al,0x1f     ; Separate number of monster (1-26)     
+   359 00000120 D0E0                            shl al,1        ; Make it slightly harder
+   360 00000122 88C4                            mov ah,al       ; Use also as its HP
+   361 00000124 92                              xchg ax,dx      ; Its attack is equivalent to its number
+   362                                          ; Player's attack
+   363                                  .2:
+   364 00000125 8A7E00                          mov bh,[bp+weapon]      ; Use current weapon level as dice
+   365 00000128 FFD6                            call si
+   366 0000012A 28C6                            sub dh,al       ; Subtract from monster's HP
+   367 0000012C 7210                            jc .3           ; Killed? yes, jump
+   368                                          ; Monster's attack
+   369 0000012E 88D7                            mov bh,dl       ; Use monster number as dice
+   370 00000130 FFD6                            call si     
+   371 00000132 2A4601                          sub al,[bp+armor]       ; Subtract armor from attack                               
+   372 00000135 7203                            jc .4
+   373 00000137 E8B7FF                          call sub_hp     ; Subtract from player's HP
+   374                                  .4:
+   375                                      ;   mov ah,0x00     ; Comes here with ah = 0
+   376 0000013A CD16                            int 0x16        ; Wait for a key.
+   377 0000013C EBE7                            jmp .2          ; Another battle round.
+   378                                  
+   379                                          ;
+   380                                          ; Monster is dead
+   381                                          ;
+   382                                  .3:
+   383 0000013E C605FA                          mov byte [di],GR_FLOOR  ; Remove from screen
+   384 00000141 C3                              ret
+   385                                  
+   386                                          ;
+   387                                          ; Fill a room
+   388                                          ;
+   389                                  fill_room:
+   390 00000142 05FA01                          add ax,(BOX_HEIGHT/2-1)*ROW_WIDTH+(BOX_WIDTH/2)*2
+   391 00000145 50                              push ax
+   392 00000146 97                              xchg ax,di                                              
+   393 00000147 D1EA                            shr dx,1                ; Obtain bit of right connection
+   394 00000149 B8B100                          mov ax,0x0000+GR_TUNNEL
+   395 0000014C B91A00                          mov cx,BOX_WIDTH
+   396 0000014F 7304                            jnc .3
+   397 00000151 57                              push di
+   398 00000152 F3AB                            rep stosw               ; Horizontal tunnel
+   399 00000154 5F                              pop di
+   400                                  .3:
+   401 00000155 D1EA                            shr dx,1                ; Obtain bit of down connection
+   402 00000157 7309                            jnc .5
+   403 00000159 B108                            mov cl,BOX_HEIGHT
+   404                                  .4:
+   405 0000015B AA                              stosb                   ; Vertical tunnel
+   406 0000015C 81C79F00                        add di,ROW_WIDTH-1
+   407 00000160 E2F9                            loop .4
+   408                                  .5:     
+   409 00000162 B715                            mov bh,BOX_MAX_WIDTH-2  
+   410 00000164 FFD6                            call si                 ; Get a random width for room.
+   411 00000166 91                              xchg ax,cx
+   412 00000167 B704                            mov bh,BOX_MAX_HEIGHT-2
+   413 00000169 FFD6                            call si                 ; Get a random height for room.
+   414 0000016B 88C5                            mov ch,al
+   415 0000016D D0E8                            shr al,1                ;
+   416 0000016F 40                              inc ax
+   417 00000170 B4A0                            mov ah,ROW_WIDTH
+   418 00000172 F6E4                            mul ah
+   419 00000174 01C8                            add ax,cx               ; Now it has a centering offset
+   420 00000176 28EC                            sub ah,ch               ; Better than "mov bx,cx mov bh,0"
+   421 00000178 24FE                            and al,0xfe
+   422 0000017A 0404                            add al,0x04
+   423 0000017C 5F                              pop di
+   424 0000017D 29C7                            sub di,ax               ; Subtract from room center
+   425 0000017F B0C9                            mov al,GR_TOP_LEFT      ; Draw top row of room
+   426 00000181 BBCDBB                          mov bx,GR_TOP_RIGHT*256+GR_HORIZ
+   427 00000184 E81100                          call fill
+   428                                  .9:
+   429 00000187 B0BA                            mov al,GR_VERT          ; Draw intermediate row of room
+   430 00000189 BBFABA                          mov bx,GR_VERT*256+GR_FLOOR     
+   431 0000018C E80900                          call fill
+   432 0000018F FECD                            dec ch
+   433 00000191 79F4                            jns .9
+   434 00000193 B0C8                            mov al,GR_BOT_LEFT      ; Draw bottom row of room
+   435 00000195 BBCDBC                          mov bx,GR_BOT_RIGHT*256+GR_HORIZ
+   436                                  
+   437                                          ;
+   438                                          ; Fill a row on screen for a room
+   439                                          ;
+   440 00000198 51                      fill:   push cx                 ; Save CX because it needs CL value again
+   441 00000199 57                              push di                 ; Save video position
+   442 0000019A E81500                          call door               ; Left border
+   443 0000019D 88D8                    .1:     mov al,bl               ; Filler
+   444 0000019F E81000                          call door
+   445 000001A2 FEC9                            dec cl
+   446 000001A4 79F7                            jns .1
+   447 000001A6 88F8                            mov al,bh               ; Right border
+   448 000001A8 E80700                          call door
+   449 000001AB 5F                              pop di                  ; Restore video position
+   450 000001AC 59                              pop cx                  ; Restore CX                                        
+   451 000001AD 81C7A000                        add di,0x00a0           ; Goes to next row on screen
+   452 000001B1 C3                              ret
+   453                                  
+   454                                          ;
+   455                                          ; Draw a room character on screen
+   456                                          ;
+   457                                  door:
+   458 000001B2 3CFA                            cmp al,GR_FLOOR         ; Drawing floor?
+   459 000001B4 751F                            jne .3                  ; No, jump
+   460 000001B6 FFD6                            call si                 ; Get a random number (BH value is GR_VERT)
+   461 000001B8 3C06                            cmp al,6                ; Chance of creating a monster
+   462 000001BA 730D                            jnc .11
+   463 000001BC 024603                          add al,[bp+level]       ; More difficult monsters as level is deeper
+   464                                  .9:
+   465 000001BF 2C05                            sub al,0x05             
+   466 000001C1 3C17                            cmp al,0x17             ; Make sure it fits inside ASCII letters
+   467 000001C3 7DFA                            jge .9
+   468 000001C5 0444                            add al,0x44             ; Offset into ASCII letters
+   469 000001C7 EB0C                            jmp short .12
+   470                                  
+   471                                  .11:
+   472 000001C9 3C0B                            cmp al,11               ; Chance of creating an item
+   473 000001CB 93                              xchg ax,bx
+   474 000001CC 2E8A580D                        cs mov bl,[si+bx+(items-random-6)]
+   475 000001D0 93                              xchg ax,bx
+   476 000001D1 7202                            jb .12
+   477 000001D3 B0FA                            mov al,GR_FLOOR         ; Show only floor.
+   478                                  .12:    
+   479                                  .3:
+   480 000001D5 3CCD                            cmp al,GR_HORIZ
+   481 000001D7 7404                            je .1
+   482 000001D9 3CBA                            cmp al,GR_VERT
+   483 000001DB 7507                            jne .2
+   484 000001DD 803DB1                  .1:     cmp byte [di],GR_TUNNEL
+   485 000001E0 7502                            jne .2
+   486 000001E2 B0CE                            mov al,GR_DOOR
+   487 000001E4 AA                      .2:     stosb
+   488 000001E5 47                              inc di
+   489 000001E6 C3                              ret
+   490                                  
+   491                                  random:
+   492 000001E7 B0FB                            mov al,251
+   493 000001E9 F66608                          mul byte [bp+rnd]
+   494 000001EC 0453                            add al,83
+   495 000001EE 894608                          mov [bp+rnd],ax
+   496                                   
+   497                                  ;       rdtsc           ; Would make it dependent on Pentium II
+   498                                  
+   499                                  ;       in al,(0x40)    ; Only works for slow requirements.
+   500                                  
+   501 000001F1 30E4                            xor ah,ah
+   502 000001F3 F6F7                            div bh
+   503 000001F5 88E0                            mov al,ah
+   504 000001F7 98                              cbw
+   505 000001F8 40                              inc ax
+   506 000001F9 C3                              ret
+   507                                  
+   508                                          ;
+   509                                          ; Items
+   510                                          ;
+   511                                  items:
+   512 000001FA 05                              db GR_FOOD
+   513 000001FB 0F                              db GR_GOLD
+   514 000001FC 04                              db GR_TRAP
+   515 000001FD 18                              db GR_WEAPON
+   516 000001FE 08                              db GR_ARMOR
+   517                                  
+   518                                      %ifdef com_file
+   519                                      %else
+   520 000001FF 4F                              times 512-($-$$) db 0x4f
+   521                                      %endif
+   522                                  

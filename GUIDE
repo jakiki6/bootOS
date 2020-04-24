@@ -1,0 +1,93 @@
+This guide is divided into two sections:
+	1. New users guide
+	2. Developers guide
+Section 1:
+	1.1 What is bootOS?
+	  bootOS is a monolithic operating system that fits in
+	  one boot sector. It's able to load, execute, and save
+	  programs. Also keeps a filesystem. It can work with
+	  any type of data storage.
+
+	  It relocates itself at 0000:7a00 and requires further
+	  768 bytes of memory starting at 0000:7700.
+
+	  This operating system runs programs as boot sectors
+	  at 0000:7c00
+
+	1.2 What are the benefits of this bootOS?
+	  * Better line handling
+	  * More filespace (65536% more xD)
+	  * More interrupts
+          * Geometry independent
+	  * Software builder
+	  * Files from both versions doesn't collide
+
+	1.3 How can I run it?
+	  First of all, you gonna need the packages "nasm", "qemu-kvm", "make" and "python3".
+	  bootOS is designed to be build on Linux (Debian) and wasn't ever tested somewhere else.
+	  To build a blank system without any software, you can run "make os.img". This can
+	  be done on Windows too.
+	  To build a system including all software, you can run "make software".
+	  If you want to exclude software, just add "E=software_src/something" at the beginning.
+	  If you want to build the installer, you can run "make installer".
+	  When you have booted the installer, you
+	  have to enter your drive's id. You can find the id under https://en.wikipedia.org/wiki/INT_13H#List_of_INT_13h_services.
+	  Note: Your boot drive has the id 80 or 00 if you are using a floppy disk. The installation should output the error code 0x00.
+		  Error code 0x01:
+		        Drive not readable. Is your usb stick plugged in?
+		  Error code 0x02:
+		        Drive is not writeable. Is it the CD ROM or something other?
+		  Error code 0x03:
+		        Source and target are the same drive.
+		  Error code 0x04:
+		        Already installed. Eject the CD/USB
+	1.4 How can contribute even though I cannot program?
+	  You can try it and try to find bugs. ;)
+
+Section 2:
+	2.1 Setup a small program
+	  The base program is very simple:
+	    org 0x7c00
+	    bits 16
+	    int 0x20
+	2.2 A reference for all interrupts provided by bootOS
+	    int 0x20   Exit to operating system.
+	    int 0x21   Input key and show in screen.
+                Entry: none
+                Output: AL = ASCII key pressed.
+                Affects: AH/BX/BP.
+	    int 0x22   Output character to screen.
+                Entry: AL = Character.
+                Output: none.
+                Affects: AH/BX/BP.
+	    int 0x23   Load file.
+                Entry: DS:BX = Filename terminated with zero.
+                       ES:DI = Point to source data (512 bytes)
+                Output: Carry flag = 0 = Found, 1 = Not found.
+                Affects: All registers (including ES).
+	    int 0x24   Save file.
+                Entry: DS:BX = Filename terminated with zero.
+                       ES:DI = Point to data target (512 bytes)
+                Output: Carry flag = 0 = Successful. 1 = Error.
+                Affects: All registers (including ES).
+	    int 0x25   Delete file.
+                Entry: DS:BX = Filename terminated with zero.
+                Affects: All registers (including ES).
+	    int 0x26   Input line and save it to 0x7780.
+                Entry: AL = promt character
+                Affects: I don't know
+	2.3 The magic offsets
+	  bootOS provides two important offsets on build:
+	    * DB S
+	    * DW HD
+	  DB S is the offset where you can change the section. It's one byte.
+	  DW HD is the offset where you can change the drive and head. It's a word 0xhhdd.
+	2.4 The breakpoint
+	  If you want your code to run every loop before the "int int_input_line", you can replace the
+	  interrupt 0x27 with your code. This is used in the clock as you can see.
+	2.5 sysmap.inc
+	  sysmap.inc can be generated with "make symbols" and can be used to link your program
+	  to the running system. You just have to add '%include "sysmap.inc"' to use the labels.
+	  This can be very useful to not waste space for code you have already in memory.
+
+will be expanded...

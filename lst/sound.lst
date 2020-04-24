@@ -1,0 +1,64 @@
+     1                                  ;;;;;;;;
+     2                                  ; File format:
+     3                                  ;	4 bytes delay: dw dx, dw cx
+     4                                  ;	508 bytes sound: dw sound
+     5                                  ;;;;;;;;
+     6                                  org 0x7c00
+     7                                  bits 16
+     8                                  
+     9 00000000 31C0                    xor ax, ax
+    10 00000002 0E                      push cs
+    11 00000003 0E                      push cs
+    12 00000004 0E                      push cs
+    13 00000005 07                      pop es
+    14 00000006 1F                      pop ds
+    15 00000007 17                      pop ss
+    16                                  
+    17                                  start:
+    18 00000008 E81700                  	call get_file
+    19 0000000B BE04C0                  	mov si, 0xc004
+    20 0000000E 8B1600C0                	mov dx, word [0xc000]
+    21 00000012 8B0E02C0                	mov cx, word [0xc002]
+    22                                  loop:
+    23 00000016 AD                      	lodsw
+    24 00000017 E82100                  	call tone
+    25 0000001A 81FE00C2                	cmp si, 0xc200
+    26 0000001E 75F6                    	jne loop
+    27 00000020 CD20                    	int 0x20
+    28                                  	
+    29                                  
+    30                                  get_file:
+    31 00000022 B03F                            mov al, "?"
+    32 00000024 E81100                          call input_line
+    33 00000027 BB8077                          mov bx, 0x7780
+    34 0000002A BF00C0                          mov di, 0xc000
+    35 0000002D CD23                            int 0x23
+    36 0000002F 7201                            jc err
+    37 00000031 C3                              ret
+    38                                  err:
+    39 00000032 B013                            mov al, 0x13
+    40 00000034 CD22                            int 0x22
+    41 00000036 EBD0                            jmp start
+    42                                  input_line:   
+    43 00000038 CD26                            int 0x26
+    44 0000003A C3                              ret
+    45                                  
+    46                                  tone:
+    47 0000003B 60                          PUSHA               ; Prolog: Preserve all registers
+    48 0000003C 89C3                        MOV BX, AX          ; 1) Preserve the note value by storing it in BX.
+    49 0000003E B0B6                        MOV AL, 182         ; 2) Set up the write to the control word register.
+    50 00000040 E643                        OUT 43h, AL         ; 2) Perform the write.
+    51 00000042 89D8                        MOV AX, BX          ; 2) Pull back the frequency from BX.
+    52 00000044 E642                        OUT 42h, AL         ; 2) Send lower byte of the frequency.
+    53 00000046 88E0                        MOV AL, AH          ; 2) Load higher byte of the frequency.
+    54 00000048 E642                        OUT 42h, AL         ; 2) Send the higher byte.
+    55 0000004A E461                        IN AL, 61h          ; 3) Read the current keyboard controller status.
+    56 0000004C 0C03                        OR AL, 03h          ; 3) Turn on 0 and 1 bit, enabling the PC speaker gate and the data transfer.
+    57 0000004E E661                        OUT 61h, AL         ; 3) Save the new keyboard controller status.
+    58 00000050 B486                        MOV AH, 86h         ; 4) Load the BIOS WAIT, int15h function AH=86h.
+    59 00000052 CD15                        INT 15h             ; 4) Immidiately interrupt. The delay is already in CX:DX.
+    60 00000054 E461                        IN AL, 61h          ; 5) Read the current keyboard controller status.
+    61 00000056 24FC                        AND AL, 0FCh        ; 5) Zero 0 and 1 bit, simply disabling the gate.
+    62 00000058 E661                        OUT 61h, AL         ; 5) Write the new keyboard controller status.
+    63 0000005A 61                          POPA                ; Epilog: Pop off all the registers pushed
+    64 0000005B C3                          RET                 ; Epilog: Return.

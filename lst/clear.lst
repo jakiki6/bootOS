@@ -1,0 +1,3 @@
+     1 00000000 B80300                  mov ax,0x0003           ; Restore text mode
+     2 00000003 CD10                    int 0x10
+     3 00000005 CD20                    int 0x20
