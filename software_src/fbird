@@ -102,7 +102,7 @@ fb16:   add al,[di+2]   ; Get character below head
         stosw
         mov al,0x21     ; '!'
         stosw
-        mov cx,100      ; Wait 100 frames
+        mov cx,30       ; Wait 100 frames
 fb20:   push cx
         call wait_frame 
         pop cx

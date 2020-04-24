@@ -1,6 +1,6 @@
 *.img
 *.inc
 *.lst
-lst/*
+lst/*.lst
 software/*
 *.txt

@@ -33,8 +33,8 @@ main:	pusha
 	mov ds, ax
 	mov es, ax
 	xor ax, ax
-	mov di, 0x8e
-	mov cx, 0x1
+	mov di, 0x8d
+	mov cx, 0x2
 	rep stosw
 	mov di, 0x0090
 	mov ah, 0x02
@@ -48,8 +48,8 @@ main:	pusha
 	mov al, dh
 	call digit
 	; date
-	mov di, 0x012a
-	mov cx, 0x1
+	mov di, 0x0129
+	mov cx, 0x2
 	xor ax, ax
 	rep stosw
 	mov di, 0x012c

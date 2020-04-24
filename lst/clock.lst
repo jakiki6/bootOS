@@ -33,8 +33,8 @@
     33 0000002E 8ED8                    	mov ds, ax
     34 00000030 8EC0                    	mov es, ax
     35 00000032 31C0                    	xor ax, ax
-    36 00000034 BF8E00                  	mov di, 0x8e
-    37 00000037 B90100                  	mov cx, 0x1
+    36 00000034 BF8D00                  	mov di, 0x8d
+    37 00000037 B90200                  	mov cx, 0x2
     38 0000003A F3AB                    	rep stosw
     39 0000003C BF9000                  	mov di, 0x0090
     40 0000003F B402                    	mov ah, 0x02
@@ -48,8 +48,8 @@
     48 00000053 88F0                    	mov al, dh
     49 00000055 E83000                  	call digit
     50                                  	; date
-    51 00000058 BF2A01                  	mov di, 0x012a
-    52 0000005B B90100                  	mov cx, 0x1
+    51 00000058 BF2901                  	mov di, 0x0129
+    52 0000005B B90200                  	mov cx, 0x2
     53 0000005E 31C0                    	xor ax, ax
     54 00000060 F3AB                    	rep stosw
     55 00000062 BF2C01                  	mov di, 0x012c
