@@ -24,6 +24,9 @@ for i in range(0, len(files)):
             continue
         dir[i*16:i*16+len(file)] = bytearray(file)
         file_space[i*512:i*512+512] = bytearray(content)
+with open("appendix.txt", "rb") as file:
+    appendix = file.read()
+    file_space[33*512:33*512 + len(appendix)] = bytearray(appendix)
 flash = dir + file_space
 with open("base.img", "wb") as output:
         output.write(flash)
