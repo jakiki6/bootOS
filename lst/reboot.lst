@@ -1,5 +1,0 @@
-     1 00000000 31C0                    xor ax, ax
-     2 00000002 8ED8                    mov ds, ax
-     3 00000004 B80000                  mov ax,0000
-     4 00000007 A3D801                  mov [0472], ax
-     5 0000000A EA0000FFFF              jmp 0xFFFF:0000

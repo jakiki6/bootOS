@@ -1,5 +1,8 @@
 org 0x7c00
-cs_command:
+
+%include "../sysmap.inc"
+
+main:
         mov al, "@"
         call input_line
         call xdigit             ; Get a hexadecimal digit
@@ -8,21 +11,5 @@ cs_command:
         xchg ax,cx
         call xdigit             ; Get a hexadecimal digit
         or al,cl
-        mov byte [0x7a00 + 292 + 1], al
+        mov byte [_disk2 + 1], al
 	int 0x20
-xdigit:  
-        lodsb
-        cmp al,0x00             ; Zero character marks end of line
-        je r
-        sub al,0x30             ; Avoid spaces (anything below ASCII 0x30)
-        jc xdigit
-        cmp al,0x0a
-        jc r
-        sub al,0x07
-        and al,0x0f   
-        stc
-r:
-        ret
-input_line:   
-        int 0x26
-	ret

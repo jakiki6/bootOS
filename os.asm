@@ -314,7 +314,7 @@ disk_dir:
 disk:
         pusha
         mov al,0x01     ; AL = 1 sector
-_disk:
+_disk1:
 %assign db_pos ($ - $$ + 1)
 %warning DB S is located at offset db_pos
 	mov ch, 0x00
@@ -460,7 +460,7 @@ cs_command:
         xchg ax,cx
         call xdigit             ; Get a hexadecimal digit
         or al,cl
-        mov byte [_disk + 1], al
+        mov byte [_disk1 + 1], al
 	ret
 
 
