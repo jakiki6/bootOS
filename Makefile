@@ -83,3 +83,7 @@ runkvm: os.img
 .PHONY: symbols
 symbols:
 	python3 symbols.py
+.PHONY: upload
+upload: software
+	@sudo cp os.img /smb/usb.img
+	@echo Reboot the PC!
