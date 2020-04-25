@@ -82,12 +82,13 @@ Section 2:
 	    * DW HD
 	  DB S is the offset where you can change the section. It's one byte.
 	  DW HD is the offset where you can change the drive and head. It's a word 0xhhdd.
+	  Note: it's safer and more beatiful tu use the symbols in sysmap.inc!
 	2.4 The breakpoint
 	  If you want your code to run every loop before the "int int_input_line", you can replace the
 	  interrupt 0x27 with your code. This is used in the clock as you can see.
 	2.5 sysmap.inc
 	  sysmap.inc can be generated with "make symbols" and can be used to link your program
-	  to the running system. You just have to add '%include "sysmap.inc"' to use the labels.
+	  to the running system. You just have to add '%include "../sysmap.inc"' to use the labels.
 	  This can be very useful to not waste space for code you have already in memory.
 
 will be expanded...

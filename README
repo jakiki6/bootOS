@@ -69,6 +69,8 @@ Filesystem organization:
   means only 32 files can be kept in one section and
   8192 files in total on one disk. Each section is an own track.
   The disk can be divided by heads. There are 256 posssible heads.
+  (Note: MS-DOS crashes if there are 256 heads. That's why some BIOSes
+  only implement 255 heads from 0x00 to 0xfe)
   This means that one disk can theoretically keep up to 2097152 files
   with a final size of 1 GiB which is the half of that what FAT16 can keep.
   
@@ -79,7 +81,7 @@ Filesystem organization:
 
 Starting bootOS kernel:
 
-  Just enter "make all".
+  Just enter "make os.img run".
 
 Installing bootOS to an usb stick:
 
@@ -101,15 +103,7 @@ Installing bootOS with installer:
 
 Installing bootOS from a CD:
 
-  Just run "make cdimg" to make a CD image.
-
-Installing bootOS manually:
-
-  First you run the "install" command and install bootOS in the bootsector
-  of your target disk. Then you run the "push" command and push the "disk" command.
-  Next, you run the "pullinst" command and switch to your target disk. There, you run
-  "edit", leave the line empty and name the file "pull". At the end, you run pull and
-  save the file as "disk".
+  Just run "make cdimg" to make a CD image. Note: this feature is not longer maintained!
 
 Build bootOS with software:
 
@@ -223,4 +217,3 @@ in the book:
   * Pillman game.
   * Toledo Atomchess.
   * bootBASIC language.
-
