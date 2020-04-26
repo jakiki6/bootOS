@@ -78,7 +78,6 @@ weapon: equ 0x0000      ; Weapon level (used 2 times)
         ; Start of the adventure!
         ;
 start:
-        in ax,0x40      ; Read timer counter
         push ax         ; Setup pseudorandom number generator
         mov ax,16
         push ax         ; starve
@@ -101,13 +100,7 @@ generate_dungeon:
         ;
         mov bl,[bp+yendor]
         add [bp+level],bl
-    %ifdef com_file
-        jne .0
-        jmp quit        ; Stop if level zero is reached
-.0:
-    %else
-        je $            ; Stop if level zero is reached
-    %endif
+	je quit
 
         ;
         ; Select a maze for the dungeon
