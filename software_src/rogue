@@ -21,7 +21,7 @@
         ; Revision date: Sep/27/2019. The COM file exits to DOS instead of halting.
         ;
 
-        CPU 8086
+        bits 16
 
 ROW_WIDTH:      EQU 0x00A0      ; Width in bytes of each video row
 BOX_MAX_WIDTH:  EQU 23          ; Max width of a room box
@@ -86,8 +86,6 @@ start:
         mov al,1
         push ax         ; yendor (low byte) + level (high byte)
         push ax         ; weapon (low byte) + armor (high byte)
-        inc ax          ; ax = 0x0002 (it was 0x0001)
-        int 0x10
         mov ax,0xb800   ; Text video segment
         mov ds,ax
         mov es,ax
@@ -205,10 +203,6 @@ game_loop:
         pop word [di]           ; Restore character and attribute under 
 
         mov al,ah
-    %ifdef com_file
-        cmp al,0x01
-        je quit                 ; Exit if Esc key is pressed
-    %endif
 
         sub al,0x4c
         mov ah,0x02             ; Left/right multiplies by 2
@@ -269,10 +263,8 @@ game_loop:
 move_cancel:
         ret                     ; Return to main loop.
 
-    %ifdef com_file
 quit:
         int 0x20
-    %endif
 
         ;
         ;     I--
@@ -317,11 +309,7 @@ food_found:
         call si                 ; Random 1-6
 
 add_hp: add ax,[bp+hp]          ; Add to current HP
-    %ifdef com_file
         js quit                 ; Exit if Esc key is pressed
-    %else
-        js $                    ; Stall if dead
-    %endif
         mov [bp+hp],ax          ; Update HP.
         ;
         ; Update screen indicator
@@ -494,7 +482,7 @@ random:
         add al,83
         mov [bp+rnd],ax
  
-;       rdtsc           ; Would make it dependent on Pentium II
+        rdtsc           ; Would make it dependent on Pentium II
 
 ;       in al,(0x40)    ; Only works for slow requirements.
 
