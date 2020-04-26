@@ -55,7 +55,7 @@ software: os.img symbols
 wipe:
 	dd if=/dev/zero of=/dev/sdc status=progress
 .PHONY: installer
-installer:
+installer: symbols
 	nasm -f bin -o installer.img installer.asm
 	nasm -f bin -o os.img os.asm
 	mkdir software
