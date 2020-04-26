@@ -43,22 +43,23 @@ input_line:
         int 0x26
         ret
 
-tone:
-    PUSHA               ; Prolog: Preserve all registers
-    MOV BX, AX          ; 1) Preserve the note value by storing it in BX.
-    MOV AL, 182         ; 2) Set up the write to the control word register.
-    OUT 43h, AL         ; 2) Perform the write.
-    MOV AX, BX          ; 2) Pull back the frequency from BX.
-    OUT 42h, AL         ; 2) Send lower byte of the frequency.
-    MOV AL, AH          ; 2) Load higher byte of the frequency.
-    OUT 42h, AL         ; 2) Send the higher byte.
-    IN AL, 61h          ; 3) Read the current keyboard controller status.
-    OR AL, 03h          ; 3) Turn on 0 and 1 bit, enabling the PC speaker gate and the data transfer.
-    OUT 61h, AL         ; 3) Save the new keyboard controller status.
-    MOV AH, 86h         ; 4) Load the BIOS WAIT, int15h function AH=86h.
-    INT 15h             ; 4) Immidiately interrupt. The delay is already in CX:DX.
-    IN AL, 61h          ; 5) Read the current keyboard controller status.
-    AND AL, 0FCh        ; 5) Zero 0 and 1 bit, simply disabling the gate.
-    OUT 61h, AL         ; 5) Write the new keyboard controller status.
-    POPA                ; Epilog: Pop off all the registers pushed
-    RET                 ; Epilog: Return.
+tone:			; cx:dx time in ms
+			; ax: frequency (calculate 1193180/freq = req. value)
+	pusha
+	xchg ax, bx
+        mov al,0xb6     ; Setup timer 2  
+        out 0x43,al
+        mov al,bl       ; Low byte of timer count
+        out 0x42,al
+        mov al,bh       ; High byte of timer count
+        out 0x42,al
+        in al,0x61
+        or al,0x03      ; Wire PC speaker to timer 2
+        out 0x61,al
+        mov ah, 0x86
+	int 0x15
+	in al,0x61 
+        and al,0xfc     ; Turn off
+        out 0x61,al
+	popa
+        ret

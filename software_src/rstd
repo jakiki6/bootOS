@@ -1,3 +1,0 @@
-xor ax, ax
-int 0x13
-int 0x20
