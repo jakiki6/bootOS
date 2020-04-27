@@ -1,35 +1,42 @@
 ;;;;;;;;
 ; File format:
-;	4 bytes delay: dw dx, dw cx
+;	4 bytes delay: dw cx, dw dx
 ;	508 bytes sound: dw sound
 ;;;;;;;;
 org 0x7c00
 bits 16
 
-xor ax, ax
-push cs
-push cs
-push cs
-pop es
-pop ds
-pop ss
-
+	xor ax, ax
+	push cs
+	push cs
+	push cs
+	pop es
+	pop ds
+	pop ss
 start:
 	call get_file
+	call tone_init
 	mov si, 0xc004
-	mov dx, word [0xc000]
-	mov cx, word [0xc002]
+	mov cx, word [0xc000]
+	mov dx, word [0xc002]
+	cmp cx, 0x00
+	jne loop
+	cmp dx, 0x00
+	jne loop
+	mov al, 0x13
+	int 0x22
+	int 0x20
 loop:
 	lodsw
 	call tone
 	cmp si, 0xc200
-	jne loop
-	int 0x20
+	jb end
+	jmp loop
 	
 
 get_file:
         mov al, "?"
-        call input_line
+        int 0x26
         mov bx, 0x7780
         mov di, 0xc000
         int 0x23
@@ -38,28 +45,32 @@ get_file:
 err:
         mov al, 0x13
         int 0x22
-        jmp start
-input_line:   
-        int 0x26
-        ret
+	mov al, 0x0d
+	int 0x22
+        jmp get_file
 
+tone_init:
+	mov al,0xb6     ; Setup timer 2
+        out 0x43,al
+	in al,0x61
+        or al,0x03      ; Wire PC speaker to timer 2
+        out 0x61,al
+	ret
+	
 tone:			; cx:dx time in ms
 			; ax: frequency (calculate 1193180/freq = req. value)
 	pusha
 	xchg ax, bx
-        mov al,0xb6     ; Setup timer 2  
-        out 0x43,al
         mov al,bl       ; Low byte of timer count
         out 0x42,al
         mov al,bh       ; High byte of timer count
         out 0x42,al
-        in al,0x61
-        or al,0x03      ; Wire PC speaker to timer 2
-        out 0x61,al
         mov ah, 0x86
 	int 0x15
+	popa
+	ret
+end:
 	in al,0x61 
         and al,0xfc     ; Turn off
         out 0x61,al
-	popa
-        ret
+        int 0x20
