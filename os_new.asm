@@ -314,7 +314,7 @@ disk:
 	add bp, 4
 	push bx
 	push es
-	push cx
+	mov byte [bp], cl
 .1:
 	mov dl, 0x80
         int 0x13
@@ -479,12 +479,11 @@ interrupt_table:
 	dw irt
 
 dap:
-	dw 0x0010	; header
+	dw 0x1000	; header
 	dw 0x0001	; number of sectors
 	dw 0x0000	; offset
 	dw 0x0000	; segment
 	times 8 db 0x00	; LBA
-	db 0x00		; Needed becausxe we use push cx with an unknown value of cx
 
 error_message:
 	db 0x13
