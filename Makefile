@@ -87,3 +87,6 @@ symbols:
 upload: software
 	@sudo cp os.img /smb/usb.img
 	@echo Reboot the PC!
+.PHONY: unstable
+unstable:
+	nasm -f bin -o os.img os_new.asm

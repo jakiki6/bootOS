@@ -95,8 +95,8 @@ os12:   mov bx,si       ; Input pointer
         ; File not found error
         ;
 os7:
-	mov si,error_message
-        call output_string
+	mov al, 0x13
+	int 0x22
         int int_restart ; Go to expect another command
 
         ;
@@ -486,8 +486,6 @@ dap:
 	times 8 db 0x00	; LBA
 	db 0x00		; Needed becausxe we use push cx with an unknown value of cx
 
-error_message:
-	db 0x13
         times 510-($-$$) db 0x00
         db 0x55,0xaa            ; Make it a bootable sector
 times (2879 * 512) db 0x00
