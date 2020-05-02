@@ -272,14 +272,10 @@ next_entry:
         ; track 1, the second entry to track 2 and so.
         ;
 get_location:
-        lea ax,[di-(sector-entry_size)] ; Get entry pointer into directory
+        lea cx,[di-(sector-entry_size)] ; Get entry pointer into directory
                         ; Plus one entry (files start on track 1)
-        ;mov cl,4        ; 2^(8-4) = entry_size
-        shr ax,4       ; Shift left and clear Carry flag
-        inc ax          ; AL = Sector 1
-	inc ax
-	;or ah, ah
-        xchg ax,cx      ; CH = Track, CL = Sector
+        shr cx,4       ; Shift left and clear Carry flag
+        add cl, 0x01
         ret
 
         ;
@@ -308,7 +304,11 @@ disk_dir:
         ;   CL = Sector number
         ;
 disk:
+	push ds
         pusha
+	mov al, 0x01
+	push 0x0000
+	pop ds
         mov si, dap
 	mov bp, si
 	add bp, 4
@@ -319,6 +319,7 @@ disk:
 	mov dl, 0x80
         int 0x13
         popa
+	pop ds
 	jc os7
         ret
 
