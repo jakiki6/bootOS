@@ -36,7 +36,7 @@ start:
 
         mov si,interrupt_table ; SI now points to interrupt_table 
         mov di,0x0020*4 ; Address of service for int 0x20
-        mov cl,8
+        mov cl,7
 .load_vec:
         movsw           ; Copy IP address
         stosw           ; Copy CS address
@@ -54,8 +54,7 @@ restart:
         pop es
         pop ss
         mov sp,stack    ; Restart stack
-	
-	int 0x27
+
         mov al,'>'      ; Command prompt
         int int_input_line ; Input line
 
@@ -95,9 +94,9 @@ os12:   mov bx,si       ; Input pointer
         ; File not found error
         ;
 os7:
-	mov al, 0x13
-	int 0x22
-        int int_restart ; Go to expect another command
+	mov si, error_msg
+	call output_string
+        int int_restart
 
         ;
         ; >> COMMAND <<
@@ -205,7 +204,7 @@ save_file:
         call write_dir          ; Save directory
         pop di
         call get_location       ; Get location of file
-        mov ah,0x03             ; Write sector
+        mov ah,0x43             ; Write sector
         jmp shared_file
 
         ;
@@ -240,11 +239,9 @@ find_file:
         call filename_length    ; Get filename length and setup DI
 os6:
         push si
-        push di
-        push cx
-        repe cmpsb      ; Compare name with entry
-        pop cx
-        pop di
+	push di
+	repe cmpsb      ; Compare name with entry
+	pop di
         pop si
         je get_location ; Jump if equal.
         call next_entry
@@ -274,8 +271,7 @@ next_entry:
 get_location:
         lea cx,[di-(sector-entry_size)] ; Get entry pointer into directory
                         ; Plus one entry (files start on track 1)
-        shr cx,4       ; Shift left and clear Carry flag
-        add cl, 0x01
+        shr cx,3       ; Shift left and clear Carry flag
         ret
 
         ;
@@ -306,15 +302,17 @@ disk_dir:
 disk:
 	push ds
         pusha
-	mov al, 0x01
 	push 0x0000
 	pop ds
         mov si, dap
-	mov bp, si
-	add bp, 4
+	mov sp, si
+	mov bp, sp
+	add sp, 4
 	push bx
 	push es
-	mov byte [bp], cl
+	and byte [bp + 8], 0b11100000
+	and cl, 0b11100000
+	or byte [bp + 8], cl
 .1:
 	mov dl, 0x80
         int 0x13
@@ -365,7 +363,6 @@ os2_:   mov al, dl
 input_key:
         mov ah,0x00
         int 0x16
-	int 0x27
         ;
         ; Screen output of character contained in al
         ; Expands 0x0d (CR) into 0x0a 0x0d (LF CR)
@@ -413,8 +410,7 @@ os23:   push di
         je os20                 ; Yes, jump
 os19:   call xdigit             ; Get a hexadecimal digit
         jnc os23
-        mov cl,4
-        shl al,cl
+        shl al,4
         xchg ax,cx
         call xdigit             ; Get a hexadecimal digit
         or al,cl
@@ -448,7 +444,6 @@ os15:
 
 
 
-
         ;
         ; Commands supported by bootOS
         ;
@@ -477,15 +472,19 @@ interrupt_table:
         dw save_file        ; int 0x24
         dw delete_file      ; int 0x25
 	dw input_line	    ; int 0x26
-	dw irt
 
 dap:
-	dw 0x1000	; header
+	dw 0x0010	; header
 	dw 0x0001	; number of sectors
-	dw 0x0000	; offset
-	dw 0x0000	; segment
-	times 8 db 0x00	; LBA
+	times 2 dw 0		; offset
+	dq 0
+
+error_msg:
+	db 0x13, 0x00
 
         times 510-($-$$) db 0x00
         db 0x55,0xaa            ; Make it a bootable sector
-times (2879 * 512) db 0x00
+
+times 1024 db "Hi"
+
+times (2880 * 512) - ($ - $$) db 0x00
