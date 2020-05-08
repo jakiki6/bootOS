@@ -95,7 +95,7 @@ os12:   mov bx,si       ; Input pointer
         ;
 os7:
 	mov si, error_msg
-	call output_string
+	cs call output_string
         int int_restart
 
         ;
@@ -305,11 +305,10 @@ disk:
 	push 0x0000
 	pop ds
         mov si, dap
-	mov sp, si
-	mov bp, sp
-	add sp, 4
-	push bx
+	mov sp, push
+	mov bp, si
 	push es
+	push bx
 	and byte [bp + 8], 0b11100000
 	and cl, 0b11100000
 	or byte [bp + 8], cl
@@ -473,18 +472,22 @@ interrupt_table:
         dw delete_file      ; int 0x25
 	dw input_line	    ; int 0x26
 
+error_msg:
+	db 0x13, 0x00
+
 dap:
 	dw 0x0010	; header
 	dw 0x0001	; number of sectors
-	times 2 dw 0		; offset
+	dq 0		; offset
 	dq 0
+push:
 
-error_msg:
-	db 0x13, 0x00
 
         times 510-($-$$) db 0x00
         db 0x55,0xaa            ; Make it a bootable sector
 
-times 1024 db "Hi"
+db "Test"
+times (512 - 4) db 0x00
+int 0x20
 
 times (2880 * 512) - ($ - $$) db 0x00
