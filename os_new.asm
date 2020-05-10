@@ -95,7 +95,7 @@ os12:   mov bx,si       ; Input pointer
         ;
 os7:
 	mov si, error_msg
-	cs call output_string
+	call output_string
         int int_restart
 
         ;
@@ -271,7 +271,7 @@ next_entry:
 get_location:
         lea cx,[di-(sector-entry_size)] ; Get entry pointer into directory
                         ; Plus one entry (files start on track 1)
-        shr cx,3       ; Shift left and clear Carry flag
+        shr cx,4        ; Shift left and clear Carry flag
         ret
 
         ;
@@ -305,13 +305,12 @@ disk:
 	push 0x0000
 	pop ds
         mov si, dap
-	mov sp, push
 	mov bp, si
-	push es
-	push bx
-	and byte [bp + 8], 0b11100000
-	and cl, 0b11100000
-	or byte [bp + 8], cl
+	mov word [bp + 4], bx
+	mov word [bp + 4 + 2], es
+	and byte [bp + 4 + 4 + 3], 0b11100000
+	and cl, 0b00011111
+	or byte [bp + 4 + 4 + 3], cl
 .1:
 	mov dl, 0x80
         int 0x13
@@ -388,7 +387,7 @@ irt:    iret
         ;   It supposes that SI never points to a zero length string.
         ;
 output_string:
-        lodsb                   ; Read character
+        cs lodsb                ; Read character
         int int_output_char     ; Output to screen
         cmp al,0x00             ; Is it 0x00 (terminator)?
         jne output_string       ; No, the loop continues
@@ -453,7 +452,13 @@ commands:
         dw edit_command
         db 2,"rm"
         dw rm_command
-        db 0
+
+dap:
+	dw 0x0010	; header
+	dw 0x0001	; number of sectors
+	dq 0		; offset
+	dq 1
+
 
 int_restart:            equ 0x20
 int_input_key:          equ 0x21
@@ -475,11 +480,6 @@ interrupt_table:
 error_msg:
 	db 0x13, 0x00
 
-dap:
-	dw 0x0010	; header
-	dw 0x0001	; number of sectors
-	dq 0		; offset
-	dq 0
 push:
 
 
