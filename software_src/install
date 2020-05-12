@@ -16,7 +16,14 @@ cs_command:
 	xor dh, dh
 	mov bx, 0x7a00; segment offset of the buffer
 	mov ax, 0x0301; AH = 03 (disk write), AL = 01 (number of sectors to write)
-	int 13h
+	int 0x13
+	jc err
+	int 0x20
+err:
+	mov al, 0x13
+	int 0x22
+	mov al, 0x0d
+	int 0x22
 	int 0x20
 xdigit:  
         lodsb
