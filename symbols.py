@@ -1,9 +1,14 @@
-import os
+#!/bin/env python3
+import os, sys
+
+if len(sys.argv) < 3:
+    print(sys.argv[0], "<input>", "<include>")
+    exit(1)
 
 content = ""
 org = 0
 
-with open("os.asm", "r") as file:
+with open(sys.argv[1], "r") as file:
     for line in file.readlines():
         if ";" in line:
             line = line.split(";")[0]
@@ -18,7 +23,7 @@ with open("os.asm", "r") as file:
                 break
             except:
                 pass
-with open("os.asm", "r") as file:
+with open(sys.argv[1], "r") as file:
     for line in file.readlines():
         if line.startswith("%"):
             continue
@@ -35,16 +40,16 @@ with open("os.asm", "r") as file:
             content += ln + "%assign __" + line.replace("\n", "") + " $ - $$\n%warning _" + line.replace("\n", "") + " __" + line
         else:
             content += line
-with open("sysmap.asm", "w") as file:
+with open("tmp.asm", "w") as file:
     file.write(content)
 
-os.system("nasm -f bin -o tmp.img sysmap.asm 2> sysmap.txt")
-os.system("rm sysmap.asm tmp.img")
+os.system(f"nasm -f bin -o tmp.img tmp.asm 2> tmp.txt")
+os.system(f"rm tmp.asm tmp.img")
 
 content = ""
 prev = ""
 
-with open("sysmap.txt", "r") as file:
+with open("tmp.txt", "r") as file:
     for line in file.readlines():
         ln = line
         line = ("_".join(line.split("_")[1:])).split(" ")[:2]
@@ -58,7 +63,7 @@ with open("sysmap.txt", "r") as file:
             content += "%define " + line[0] + " " + hex(org + int(line[1])) + "\n"
         except:
             pass
-with open("sysmap.inc", "w") as file:
+with open(sys.argv[2], "w") as file:
     file.write(content)
 
-os.system("rm sysmap.txt")
+os.system("rm tmp.txt")

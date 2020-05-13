@@ -82,7 +82,10 @@ runkvm: os.img
 	qemu-system-x86_64 -drive file=$<,format=raw --enable-kvm -serial stdio -s
 .PHONY: symbols
 symbols:
-	python3 symbols.py
+	python3 symbols.py os.asm sysmap.inc
+.PHONY: unstable_symbols
+unstable_symbols:
+	python3 symbols.py os_new.asm sysmap.inc
 .PHONY: upload
 upload: software
 	@sudo cp os.img /smb/usb.img
