@@ -308,9 +308,9 @@ disk:
 	mov bp, si
 	mov word [bp + 4], bx
 	mov word [bp + 4 + 2], es
-	and byte [bp + 4 + 4 + 3], 0b11100000
+	and byte [bp + 4 + 4], 0b11100000
 	and cl, 0b00011111
-	or byte [bp + 4 + 4 + 3], cl
+	or byte [bp + 4 + 4], cl
 .1:
 	mov dl, 0x80
         int 0x13
@@ -453,6 +453,8 @@ commands:
         db 2,"rm"
         dw rm_command
 
+%assign dap_pos ($ - $$)
+%warning Dap at dap_pos
 dap:
 	dw 0x0010	; header
 	dw 0x0001	; number of sectors
