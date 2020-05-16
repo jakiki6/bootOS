@@ -52,6 +52,7 @@ start:
         mov es,ax
 restart:
         cld
+	inc byte [game_loop.lvl_pointer + 2]
         xor cx,cx
         push cx         ; shot+down
         in ax,0x40
@@ -173,6 +174,7 @@ game_loop:
         je .24          ; Jump if not shooting
         call get_pos
         inc byte [bx]   ; Increase cube hits
+.lvl_pointer:
         cmp byte [bx],ENEMY+3   ; 3 hits?
         jne .24         ; No, jump
         mov byte [bx],0 ; Yes, remove.
@@ -372,6 +374,5 @@ sin_table:
 
     %ifdef com_file
     %else
-	times 510-($-$$) db 0x4f
-	db 0x55,0xaa           ; Make it a bootable sector
+	times 512-($-$$) nop
     %endif
