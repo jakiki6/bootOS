@@ -4,15 +4,15 @@ org 0x7c00
 
 jmp_command:
         mov al, ":"
-        call input_line
+        call bootOS.input_line
 	mov si, 0x7780
 	xor ax, ax
-	call xdigit
-	cs mov byte [_disk2 + 1], al
+	call bootOS.xdigit
+	cs mov byte [bootOS._disk2 + 1], al
 	xor ax, ax
-	call xdigit
-	cs mov byte [_disk2 + 2], al
+	call bootOS.xdigit
+	cs mov byte [bootOS._disk2 + 2], al
 	xor ax, ax
-	call xdigit
-	cs mov byte [_disk1 + 1], al
+	call bootOS.xdigit
+	cs mov byte [bootOS._disk1 + 1], al
 	int 0x20

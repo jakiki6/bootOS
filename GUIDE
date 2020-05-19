@@ -23,8 +23,8 @@ Section 1:
 	  * Files from both versions doesn't collide
 
 	1.3 How can I run it?
-	  First of all, you gonna need the packages "nasm", "qemu-kvm", "make" and "python3".
-	  bootOS is designed to be build on Linux (Debian) and wasn't ever tested somewhere else.
+	  First of all, you need the packages "nasm", "qemu-kvm", "make" and "python3".
+	  bootOS is designed to be build on Linux (Debian) and wasn't tested somewhere else.
 	  To build a blank system without any software, you can run "make os.img". This can
 	  be done on Windows too.
 	  To build a system including all software, you can run "make software".
@@ -90,5 +90,6 @@ Section 2:
 	  sysmap.inc can be generated with "make symbols" and can be used to link your program
 	  to the running system. You just have to add '%include "../sysmap.inc"' to use the labels.
 	  This can be very useful to not waste space for code you have already in memory.
+	  Note: labels start with "bootOS.". (e.g. "bootOS.restart")
 
 will be expanded...

@@ -59,6 +59,7 @@ with open("tmp.txt", "r") as file:
             line[0] = prev + line[0]
         else:
             prev = line[0]
+        line[0] = "bootOS." + line[0]
         try:
             content += "%define " + line[0] + " " + hex(org + int(line[1])) + "\n"
         except:

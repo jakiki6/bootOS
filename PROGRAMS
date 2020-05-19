@@ -1,0 +1,54 @@
+basic:
+  A small basic interpreter.
+bricks:
+  A game like Atari Breakout.
+charset:
+  Shows you the current characters set.
+clear:
+  Clears the screen.
+clock:
+  Installs itself into memory to run every keypress and displays the time.
+disk:
+  Changes the current disk (00-ff):
+    00 is the first floppy disk
+    01 is the second floppy disk
+    ...
+    80 is the first hard disk
+    81 in the second hard disk
+    ...
+    e0 is the CD disk (only for live systems booted from CD disk)
+doom:
+  A cubic version of doom.
+fbird:
+  Floppy bird (a clone of Flappy Bird).
+head:
+  Changes current head. (00-ff)
+install:
+  Installs entered file into the bootsector of the specified drive (see command "disk" for drive notation).
+  Note: It must be a valid bootsector -> no int 0x20, word 0x7c1e must be 0xaa55
+  Note: This uninstalls bootOS from the bootsector but does not wipe the data.
+invaders:
+  A invaders clone.
+jmp:
+  Combines the disk, head and # command.
+  Format: ddhh##
+lbaaviable:
+  Checks, if the LBA extension is aviable.
+lights:
+  Remember the sequence of lights.
+loadb:
+  Loads a program for basic which was saved.
+pillman:
+  A pacman clone.
+push:
+  Pushs a program into memory.		\
+pull:					|--- For moving programs
+  Pulls a program from memory.		/
+reboot:
+  Reboots the system.
+rogue:
+  A rogue like game.
+screensaver:
+  A Julia fractal screensaver.
+sound:
+  Plays music.

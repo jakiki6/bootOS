@@ -1,6 +1,14 @@
 org 0x7c00
-cs_command:
-        mov al, "@"
+install_command:
+	mov al, "?"
+	call input_line
+	mov bx, si
+        mov di, 0xa000
+        int 0x23
+        jc err
+	cmp word [0xa1fe], 0xaa55
+	jne err
+	mov al, "@"
         call input_line
         call xdigit             ; Get a hexadecimal digit
         mov cl,4
@@ -14,7 +22,7 @@ cs_command:
 	mov cx, 0x0001
 	pop dx
 	xor dh, dh
-	mov bx, 0x7a00; segment offset of the buffer
+	mov bx, 0xa000; segment offset of the buffer
 	mov ax, 0x0301; AH = 03 (disk write), AL = 01 (number of sectors to write)
 	int 0x13
 	jc err

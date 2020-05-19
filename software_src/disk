@@ -4,12 +4,12 @@ org 0x7c00
 
 main:
         mov al, "@"
-        call input_line
-        call xdigit             ; Get a hexadecimal digit
+        call bootOS.input_line
+        call bootOS.xdigit             ; Get a hexadecimal digit
         mov cl,4
         shl al,cl
         xchg ax,cx
-        call xdigit             ; Get a hexadecimal digit
+        call bootOS.xdigit             ; Get a hexadecimal digit
         or al,cl
-        mov byte [_disk2 + 1], al
+        mov byte [bootOS._disk2 + 1], al
 	int 0x20
