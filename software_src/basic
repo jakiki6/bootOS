@@ -501,11 +501,11 @@ f6:
 	ret
 
 bye_statement:
-		mov byte [0xfffc], 0x00
-		int 0x20
+	int 0x20
 
 save_statement:
-	mov di, 0x8100
+	mov di, line
+	inc di
 	call spaces
 	mov bx, di
 	mov di, program
@@ -548,3 +548,4 @@ statements:
 	dw sharp_command
 
 
+times 512 - ($ - $$) nop
