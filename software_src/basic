@@ -164,7 +164,7 @@ start:
         ;
 main_loop:
         mov sp,stack    ; Reinitialize stack pointer
-	int 0xa0
+	int 0x27
         mov ax,main_loop
         push ax
         xor ax,ax       ; Mark as interactive
