@@ -36,7 +36,7 @@ start:
 
         mov si,interrupt_table ; SI now points to interrupt_table 
         mov di,0x0020*4 ; Address of service for int 0x20
-        mov cl,8
+        mov cl,9
 .load_vec:
         movsw           ; Copy IP address
         stosw           ; Copy CS address
@@ -54,8 +54,7 @@ restart:
         pop es
         pop ss
         mov sp,stack    ; Restart stack
-	
-	int 0x27
+
         mov al,'>'      ; Command prompt
         int int_input_line ; Input line
 
@@ -495,7 +494,8 @@ interrupt_table:
         dw save_file        ; int 0x24
         dw delete_file      ; int 0x25
 	dw input_line	    ; int 0x26
-	dw irt
+	dw irt              ; nop
+	dw os7		    ; mt
 
 error_message:
 	db 0x13

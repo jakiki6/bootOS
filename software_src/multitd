@@ -1,0 +1,32 @@
+	org 0x0000
+init:	mov si, 0x7c00
+	push 0x1000
+	pop es
+	mov cx, 0x0200
+	mov si, 0x7c00
+	xor di, di
+.1:	cs lodsb
+	es stosb
+	loop .1
+.2:	jmp 0x1000:.3
+.3:	mov word [0x0028 * 4], launch
+	mov word [0x0028 * 4 + 2], 0x1000
+	mov word [0x0001 * 4], main
+        mov word [0x0001 * 4 + 2], 0x1000
+	mov di, 0x0200
+	mov cx, 0xffff - 0x0200
+	xor ax, ax
+	rep stosb
+	jmp setup
+launch:	
+setup:	pushf
+	mov bp, sp
+	or byte [bp], 0b00000001
+	push word [0x0020 * 4]
+	push word [0x0020 * 4 + 2]
+	iret
+main:	push bp
+	mov bp, sp
+        or byte [bp + 6], 0b00000001
+	pop bp
+	iret
