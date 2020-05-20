@@ -1,4 +1,13 @@
 	org 0x0000
+frame:	equ 0x0200	# start of config frame
+cpid:	equ 0x0000	# pid of current process | byte
+crt:	equ 0x0001	# remaining runtime for current process (if 0 then jump) | byte
+rpm:	equ 0x0002	# map with 256 byte entries for registered processes | 256 bytes
+stsp:	equ 0x0102	# place to store bx
+caller:	equ 0x0104
+
+proc_space:	equ 0x1000
+
 init:	mov si, 0x7c00
 	push 0x1000
 	pop es
@@ -21,12 +30,12 @@ init:	mov si, 0x7c00
 launch:	
 setup:	pushf
 	mov bp, sp
-	or byte [bp], 0b00000001
-	push word [0x0020 * 4]
+	or byte [bp + 1], 0b00000001
 	push word [0x0020 * 4 + 2]
+	push word [0x0020 * 4]
 	iret
-main:	push bp
+main:	pusha
 	mov bp, sp
-        or byte [bp + 6], 0b00000001
-	pop bp
+        or byte [bp + 4 + 1], 0b00000001
+	popa
 	iret
