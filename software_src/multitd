@@ -1,12 +1,17 @@
-	org 0x0000
-frame:	equ 0x0200	# start of config frame
-cpid:	equ 0x0000	# pid of current process | byte
-crt:	equ 0x0001	# remaining runtime for current process (if 0 then jump) | byte
-rpm:	equ 0x0002	# map with 256 byte entries for registered processes | 256 bytes
-stsp:	equ 0x0102	# place to store bx
-caller:	equ 0x0104
+org 0x0000
+bits 16
 
-proc_space:	equ 0x1000
+frame:	equ 0x0200	; start of config frame
+cpid:	equ 0x0000	; pid of current process | byte
+crt:	equ 0x0001	; remaining runtime for current process (if 0 then jump) | byte
+rpm:	equ 0x0002	; map with 256 byte entries for registered processes | 256 bytes
+stsp:	equ 0x0102	; place to store bx
+caller_ip:	equ 0x0104	; caller ip
+caller_cs:	equ 0x0106	; caller cs
+
+proc_space:	equ 0x1000 + 32	; space for process descriptors
+proc_size:	equ 32		; size of descriptor
+max_proc:	equ 256
 
 init:	mov si, 0x7c00
 	push 0x1000
@@ -14,8 +19,8 @@ init:	mov si, 0x7c00
 	mov cx, 0x0200
 	mov si, 0x7c00
 	xor di, di
-.1:	cs lodsb
-	es stosb
+.1:	cs lodsb	; load from cs
+	es stosb	; store in es (for 0x10000)
 	loop .1
 .2:	jmp 0x1000:.3
 .3:	mov word [0x0028 * 4], launch
@@ -27,7 +32,17 @@ init:	mov si, 0x7c00
 	xor ax, ax
 	rep stosb
 	jmp setup
-launch:	
+launch:	pusha
+	call find_free_proc
+	jc .err
+	inc byte [bx + frame + rpm]	; mark as running
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	popa
+	iret
+.err:	mov bp,sp
+        rcl byte [bp+4],1		; set carry
+	popa
+	iret
 setup:	pushf
 	mov bp, sp
 	or byte [bp + 1], 0b00000001
@@ -39,3 +54,18 @@ main:	pusha
         or byte [bp + 4 + 1], 0b00000001
 	popa
 	iret
+find_free_proc:	# bx = pid
+	xor bx, bx
+	clc
+	mov si, frame * rpm
+.1:	mov bx, si
+	lodsb
+	test bh, bh
+	jnz .2
+	test al, al
+	jnz .1
+	sub bx, frame + rpm
+	ret
+.2:	stc
+	xor bx, bx
+	ret
