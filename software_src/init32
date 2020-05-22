@@ -1,0 +1,44 @@
+[ORG 0x7c00]              ; add to offsets
+ 
+start:   
+   xor ax, ax             ; make it zero
+   mov ds, ax             ; DS=0
+   mov ss, ax             ; stack starts at seg 0
+   mov sp, 0x7700         ; 7700h past code start, 
+                          ; making the stack 7.5k in size
+   cli                    ; no interrupts
+   push ds                ; save real mode
+ 
+   lgdt [gdtinfo]         ; load gdt register
+ 
+   mov  eax, cr0          ; switch to pmode by
+   or al,1                ; set pmode bit
+   mov  cr0, eax
+ 
+   jmp $+2                ; tell 386/486 to not crash
+ 
+   mov  bx, 0x08          ; select descriptor 1
+   mov  ds, bx            ; 8h = 1000b
+
+   mov  cr0, eax
+   jmp 0x8:pmode
+pmode:
+   mov  bx, 0x10          ; select descriptor 2, instead of 1
+   mov  ds, bx            ; 10h = 10000b
+ 
+   and al,0xFE            ; back to realmode
+   mov  cr0, eax          ; by toggling bit again
+   jmp 0x0:huge_unreal
+huge_unreal:
+   int 0x20
+ 
+gdtinfo:
+   dw gdt_end - gdt - 1   ;last byte in table
+   dd gdt                 ;start of table
+ 
+gdt         dd 0,0        ; entry 0 is always unused
+flatcode    db 0xff, 0xff, 0, 0, 0, 10011010b, 10001111b, 0
+flatdata    db 0xff, 0xff, 0, 0, 0, 10010010b, 11001111b, 0
+gdt_end:
+ 
+times 512-($-$$) db 0  ; fill sector w/ 0's

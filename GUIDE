@@ -91,5 +91,10 @@ Section 2:
 	  to the running system. You just have to add '%include "../sysmap.inc"' to use the labels.
 	  This can be very useful to not waste space for code you have already in memory.
 	  Note: labels start with "bootOS.". (e.g. "bootOS.restart")
+	2.6 32-bit access
+	  Note: this article is about init32.
+	  A 80386 or higher microprocessor allows you to access memory with 32-bit registers
+	  as long as you use the Address Size Override Prefix. Nasm does this usually when you
+	  don't define the bits (e.g. not "bits 16"). 
 
 will be expanded...
