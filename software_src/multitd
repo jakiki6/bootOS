@@ -13,6 +13,9 @@ proc_space:	equ 0x1000 + 32	; space for process descriptors
 proc_size:	equ 32		; size of descriptor
 max_proc:	equ 256
 
+; proc descriptor format:
+; ip cs ax bx cx dx sp bp si di ds es ss flags priority = 30 bytes
+
 init:	mov si, 0x7c00
 	push 0x1000
 	pop es
@@ -36,7 +39,7 @@ launch:	pusha
 	call find_free_proc
 	jc .err
 	inc byte [bx + frame + rpm]	; mark as running
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	call init_proc
 	popa
 	iret
 .err:	mov bp,sp
@@ -50,11 +53,12 @@ setup:	pushf
 	push word [0x0020 * 4]
 	iret
 main:	pusha
+	
 	mov bp, sp
         or byte [bp + 4 + 1], 0b00000001
 	popa
 	iret
-find_free_proc:	# bx = pid
+find_free_proc:	; bx = pid
 	xor bx, bx
 	clc
 	mov si, frame * rpm
@@ -68,4 +72,21 @@ find_free_proc:	# bx = pid
 	ret
 .2:	stc
 	xor bx, bx
+	ret
+init_proc:	; bx = pid
+		; cx:dx = cs:ip
+		; initalizes the proc space
+	mov [frame + stsp], sp	; save sp
+	mov sp, proc_space
+	add sp, bx
+	xor ax, ax
+	push dx	; ip
+	push cx ; cs
+	push ax
+	push bx
+	mov cx, 9
+	rep cs push ax
+	push 0b0000000100000000	; trap flag
+	push 0x20		; priority
+	mov sp, [frame + stsp]
 	ret
