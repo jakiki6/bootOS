@@ -302,7 +302,7 @@ disk_dir:
 disk:
 	push ds
         pusha
-	push 0x0000
+	push cs
 	pop ds
         mov si, dap
 	mov bp, si
@@ -316,7 +316,7 @@ disk:
         int 0x13
         popa
 	pop ds
-	jc os7
+	clc
         ret
 
         ;
@@ -459,7 +459,8 @@ dap:
 	dw 0x0010	; header
 	dw 0x0001	; number of sectors
 	dq 0		; offset
-	dq 1
+pusher:
+	dq 1		; lba
 
 
 int_restart:            equ 0x20

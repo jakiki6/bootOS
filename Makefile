@@ -80,13 +80,13 @@ runkvm: os.img
 .PHONY: symbols
 symbols:
 	python3 symbols.py os.asm sysmap.inc
-.PHONY: unstable_symbols
-unstable_symbols:
+.PHONY: alternate_symbols
+alternate_symbols:
 	python3 symbols.py os_new.asm sysmap.inc
 .PHONY: upload
 upload: software
 	@sudo cp os.img /smb/usb.img
 	@echo Reboot the PC!
-.PHONY: unstable
-unstable:
+.PHONY: alternate
+alternate:
 	nasm -f bin -o os.img os_new.asm

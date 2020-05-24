@@ -77,8 +77,7 @@ init_proc:	; bx = pid
 		; cx:dx = cs:ip
 		; initalizes the proc space
 	mov [frame + stsp], sp	; save sp
-	mov sp, proc_space
-	add sp, bx
+	call get_pos
 	xor ax, ax
 	push dx	; ip
 	push cx ; cs
@@ -89,4 +88,12 @@ init_proc:	; bx = pid
 	push 0b0000000100000000	; trap flag
 	push 0x20		; priority
 	mov sp, [frame + stsp]
+	ret
+save_state:	
+
+get_pos:	; bx = pid
+		; ret: bx = sp = pos
+	mul bx, proc_size
+	add bx, proc_space
+	mov sp, bx
 	ret
