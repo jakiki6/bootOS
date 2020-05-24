@@ -290,7 +290,7 @@ write_dir:
         mov ah,0x43
 disk_dir:
         mov bx,sector
-        mov cx,0x0002
+        mov cl, 02
         ;
         ; Do disk operation.
         ;
@@ -308,9 +308,9 @@ disk:
 	mov bp, si
 	mov word [bp + 4], bx
 	mov word [bp + 4 + 2], es
-	and byte [bp + 4 + 4], 0b11100000
+	and byte [bp + 4 + 4 + 3], 0b11100000
 	and cl, 0b00011111
-	or byte [bp + 4 + 4], cl
+	or byte [bp + 4 + 4 + 3], cl
 .1:
 	mov dl, 0x80
         int 0x13
@@ -460,7 +460,7 @@ dap:
 	dw 0x0001	; number of sectors
 	dq 0		; offset
 pusher:
-	dq 1		; lba
+	dq 0b00100000	; lba
 
 
 int_restart:            equ 0x20

@@ -323,7 +323,7 @@ _disk2:
         mov dx, 0x0080; DH = Drive A. DL = Head 0.
         int 0x13
         popa
-        jc disk         ; Retry
+	clc
         ret
 
         ;
