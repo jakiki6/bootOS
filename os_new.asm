@@ -271,7 +271,7 @@ next_entry:
 get_location:
         lea cx,[di-(sector-entry_size)] ; Get entry pointer into directory
                         ; Plus one entry (files start on track 1)
-        shr cx,4        ; Shift left and clear Carry flag
+        shr cx,4        ; Divide by 16
         ret
 
         ;
@@ -300,7 +300,6 @@ disk_dir:
         ;   CL = Sector number
         ;
 disk:
-	push ds
         pusha
 	push cs
 	pop ds
@@ -308,15 +307,13 @@ disk:
 	mov bp, si
 	mov word [bp + 4], bx
 	mov word [bp + 4 + 2], es
-	and byte [bp + 4 + 4 + 3], 0b11100000
+	and byte [bp + 4 + 8 + 3], 0b11100000
 	and cl, 0b00011111
-	or byte [bp + 4 + 4 + 3], cl
+	or byte [bp + 4 + 8 + 3], cl
 .1:
 	mov dl, 0x80
         int 0x13
         popa
-	pop ds
-	clc
         ret
 
         ;
@@ -338,12 +335,11 @@ os1:    cmp al,0x08     ; Backspace?
         cmp si, di
         je os2_
         dec di          ; Erase a character
-        push ax
         mov al, " "
         int int_output_char
         mov al, 0x08
         int int_output_char
-        pop ax
+        mov al, dl
 os2:    int int_input_key  ; Read keyboard
         cmp al,0x0d     ; CR pressed?
         jne os10
@@ -459,8 +455,8 @@ dap:
 	dw 0x0010	; header
 	dw 0x0001	; number of sectors
 	dq 0		; offset
-pusher:
-	dq 0b00100000	; lba
+	dq 0
+	dq 0b00000000	; lba
 
 
 int_restart:            equ 0x20
