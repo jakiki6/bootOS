@@ -33,19 +33,19 @@ jmp:
   Combines the disk, head and # command.
   Format: ddhh##
 lbaaviable:
-  Checks, if the LBA extension is aviable.
+  Checks, if the LBA extension is aviable. This is useful for os_new.asm.
 lights:
   Remember the sequence of lights.
 loadb:
-  Loads a program for basic which was saved.
+  Loads a program for basic which was saved and sets the dirty bit.
 pillman:
   A pacman clone.
 push:
-  Pushs a program into memory.		\
-pull:					|--- For moving programs
-  Pulls a program from memory.		/
+  Pushs a program into a memory section.	\
+pull:						|--- For moving programs
+  Pulls a program from a memory section.	/
 reboot:
-  Reboots the system.
+  Reboots the system (jumps to 0xffff:0000).
 rogue:
   A rogue like game.
 screensaver:
