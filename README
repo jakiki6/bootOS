@@ -12,6 +12,8 @@ fork by Jakob Kirsch Jan/19/2020
 http://nanochess.org
 https://github.com/nanochess/bootOS
 
+Note: Commit 0cbeecb917e4e5008351c2adedafffd13c0e83ae is the result of 117 commits (My original fork was on https://edugit.org/jakobkir/bootOS).
+
 If you want to assemble it, you must download the Netwide Assembler
 (nasm) from www.nasm.us
 
