@@ -305,11 +305,11 @@ disk:
 	pop ds
         mov si, dap
 	mov bp, si
-	mov word [bp + 4], bx
-	mov word [bp + 4 + 2], es
-	and byte [bp + 4 + 8 + 3], 0b11100000
+	mov word [bp + 4 + 4], bx
+	mov word [bp + 4 + 4 + 2], es
+	and byte [bp + 4 + 4 + 2 + 7], 0b11100000
 	and cl, 0b00011111
-	or byte [bp + 4 + 8 + 3], cl
+	or byte [bp + 4 + 4 + 2 + 7], cl
 .1:
 	mov dl, 0x80
         int 0x13
@@ -455,8 +455,8 @@ dap:
 	dw 0x0010	; header
 	dw 0x0001	; number of sectors
 	dq 0		; offset
-	dq 0
-	dq 0b00000000	; lba
+	dq 0		; lba
+	dq 0		; lba
 
 
 int_restart:            equ 0x20
@@ -478,9 +478,6 @@ interrupt_table:
 
 error_msg:
 	db 0x13, 0x00
-
-push:
-
 
         times 510-($-$$) db 0x00
         db 0x55,0xaa            ; Make it a bootable sector
