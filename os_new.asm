@@ -94,8 +94,8 @@ os12:   mov bx,si       ; Input pointer
         ; File not found error
         ;
 os7:
-	mov si, error_msg
-	call output_string
+	mov al, 0x13
+	call output_char
         int int_restart
 
         ;
@@ -269,7 +269,9 @@ next_entry:
         ; track 1, the second entry to track 2 and so.
         ;
 get_location:
-        lea cx,[di-(sector-entry_size)] ; Get entry pointer into directory
+	mov cx, di
+	sub cx, (sector-entry_size) - (2 << 4)
+;        lea cx,[di-(sector-entry_size)] ; Get entry pointer into directory
                         ; Plus one entry (files start on track 1)
         shr cx,4        ; Divide by 16
         ret
@@ -290,7 +292,7 @@ write_dir:
         mov ah,0x43
 disk_dir:
         mov bx,sector
-        mov cl, 02
+        mov cl, 0x03
         ;
         ; Do disk operation.
         ;
@@ -305,11 +307,11 @@ disk:
 	pop ds
         mov si, dap
 	mov bp, si
-	mov word [bp + 4 + 4], bx
-	mov word [bp + 4 + 4 + 2], es
-	and byte [bp + 4 + 4 + 2 + 7], 0b11100000
+	mov word [bp + (dap.offset - dap)], bx
+	mov word [bp + (dap.offset - dap) + 2], es
+	and byte [bp + (dap.lba_lower - dap) + 3], 0b11100000
 	and cl, 0b00011111
-	or byte [bp + 4 + 4 + 2 + 7], cl
+	or byte [bp + (dap.lba_lower - dap) + 3], cl
 .1:
 	mov dl, 0x80
         int 0x13
@@ -452,10 +454,17 @@ commands:
 %assign dap_pos ($ - $$)
 %warning Dap at dap_pos
 dap:
-	dw 0x0010	; header
+.header:
+	db 0x10	 	; header
+.unused:
+	db 0x00		; unused
+.count:
 	dw 0x0001	; number of sectors
+.offset:
 	dq 0		; offset
+.lba_lower:
 	dq 0		; lba
+.lba_upper:
 	dq 0		; lba
 
 
@@ -476,8 +485,8 @@ interrupt_table:
         dw delete_file      ; int 0x25
 	dw input_line	    ; int 0x26
 
-error_msg:
-	db 0x13, 0x00
+;error_msg:
+;	db 0x13, 0x00
 
         times 510-($-$$) db 0x00
         db 0x55,0xaa            ; Make it a bootable sector
