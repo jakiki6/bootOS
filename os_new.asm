@@ -316,6 +316,7 @@ disk:
 	mov dl, 0x80
         int 0x13
         popa
+	clc
         ret
 
         ;
@@ -366,9 +367,10 @@ input_key:
 output_char:
         cmp al,0x0d
         jne os3
+	push ax
 	mov al, 0x0a
         int int_output_char
-        mov al,0x0d
+        pop ax
 os3:
         mov ah,0x0e     ; Output character to TTY
         mov bx,0x0007   ; Gray. Required for graphic modes

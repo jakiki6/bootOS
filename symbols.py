@@ -64,6 +64,9 @@ with open("tmp.txt", "r") as file:
             content += "%define " + line[0] + " " + hex(org + int(line[1])) + "\n"
         except:
             pass
+content += '''
+%define exit int 0x20
+'''[1:]
 with open(sys.argv[2], "w") as file:
     file.write(content)
 
