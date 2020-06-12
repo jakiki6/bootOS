@@ -47,6 +47,7 @@ start:
         ;
 restart:
         cld             ; Clear D flag.
+	clc
         push cs         ; Reinit all segment registers
         push cs
         push cs
@@ -64,7 +65,7 @@ restart:
         mov di,commands ; Point to commands list
 
         ; Notice that filenames starting with same characters
-        ; won't be recognized as such (so file dirab cannot be
+        ; won't be recognized as such (so file lsab cannot be
         ; executed).
 os11:
         mov al,[di]     ; Read length of command in chars
@@ -316,7 +317,6 @@ disk:
 	mov dl, 0x80
         int 0x13
         popa
-	clc
         ret
 
         ;
