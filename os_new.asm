@@ -251,7 +251,7 @@ os6:
 
 next_entry:
         add di,byte entry_size          ; Go to next entry.
-        cmp di,sector+sector_size       ; Complete directory?
+        cmp di,sector		       ; Complete directory?
         stc                             ; Error, not found.
         ret
 
@@ -308,8 +308,8 @@ disk:
 	pop ds
         mov si, dap
 	mov bp, si
-	mov word [bp + (dap.offset - dap)], bx
-	mov word [bp + (dap.offset - dap) + 2], es
+	mov word [bp + (dap.offset_offset - dap)], bx
+	mov word [bp + (dap.offset_segment - dap)], es
 	and byte [bp + (dap.lba_lower - dap) + 3], 0b11100000
 	and cl, 0b00011111
 	or byte [bp + (dap.lba_lower - dap) + 3], cl
@@ -462,8 +462,10 @@ dap:
 	db 0x00		; unused
 .count:
 	dw 0x0001	; number of sectors
-.offset:
-	dq 0		; offset
+.offset_offset:
+	dw 0		; offset
+.offset_segment
+	dw 0		; offset
 .lba_lower:
 	dq 0		; lba
 .lba_upper:

@@ -5,16 +5,17 @@ frame:	equ 0x0200	; start of config frame
 cpid:	equ 0x0000	; pid of current process | byte
 crt:	equ 0x0001	; remaining runtime for current process (if 0 then jump) | byte
 rpm:	equ 0x0002	; map with 256 byte entries for registered processes | 256 bytes
-stsp:	equ 0x0102	; place to store bx
-caller_ip:	equ 0x0104	; caller ip
-caller_cs:	equ 0x0106	; caller cs
+stsp:	equ 0x0102	; place to store a register | 2 bytes
+caller_ip:	equ 0x0104	; caller ip | 2 bytes
+caller_cs:	equ 0x0106	; caller cs | 2 bytes
 
 proc_space:	equ 0x1000 + 32	; space for process descriptors
 proc_size:	equ 32		; size of descriptor
 max_proc:	equ 256
+stack:		equ 0x9000
 
 ; proc descriptor format:
-; ip cs ax bx cx dx sp bp si di ds es ss flags priority = 30 bytes
+; ip cs ax bx cx dx sp bp si di ds es ss flags priority <2 bytes free space> = 32 bytes
 
 init:	mov si, 0x7c00
 	push 0x1000
@@ -89,11 +90,38 @@ init_proc:	; bx = pid
 	push 0x20		; priority
 	mov sp, [frame + stsp]
 	ret
-save_state:	
+save_state:	; sp = entry
+	cs push word [frame + caller_ip]
+	cs push word [frame + caller_cs]
+	cs push ax
+	cs push bx
+	cs push cx
+	cs push dx
+	cs push sp
+	cs push bp
+	cs push si
+	cs push di
+	cs push ds
+	cs push es
+	cs push ss
+	mov sp, stack
+	cs push cs
+	cs pop ss
+	push cs
+	push cs
+	pop ds
+	pop es
 
 get_pos:	; bx = pid
 		; ret: bx = sp = pos
-	mul bx, proc_size
-	add bx, proc_space
+	push ax
+	push cx
+	xchg ax, bx
+	mov cl, proc_size
+	mul cl
+	add ax, proc_space
+	xchg ax, bx
+	pop cx
+	pop ax
 	mov sp, bx
 	ret
