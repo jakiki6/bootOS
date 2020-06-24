@@ -251,7 +251,7 @@ os6:
 
 next_entry:
         add di,byte entry_size          ; Go to next entry.
-        cmp di,sector		       ; Complete directory?
+        cmp di,sector+sector_size-entry_size	; Complete directory?
         stc                             ; Error, not found.
         ret
 
