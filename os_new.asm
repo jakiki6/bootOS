@@ -310,9 +310,9 @@ disk:
 	mov bp, si
 	mov word [bp + (dap.offset_offset - dap)], bx
 	mov word [bp + (dap.offset_segment - dap)], es
-	and byte [bp + (dap.lba_lower - dap) + 3], 0b11100000
+	and byte [bp + (dap.lba_lower - dap)], 0b11100000
 	and cl, 0b00011111
-	or byte [bp + (dap.lba_lower - dap) + 3], cl
+	or byte [bp + (dap.lba_lower - dap)], cl
 .1:
 	mov dl, 0x80
         int 0x13
@@ -466,9 +466,9 @@ dap:
 	dw 0		; offset
 .offset_segment
 	dw 0		; offset
-.lba_lower:
-	dq 0		; lba
 .lba_upper:
+	dq 0		; lba
+.lba_lower:
 	dq 0		; lba
 
 
