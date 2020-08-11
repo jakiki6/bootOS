@@ -1,127 +1,44 @@
-org 0x0000
-bits 16
+	org 0x0000
+target_irq:	equ 0x08
+stack:		equ 0xf000
 
-frame:	equ 0x0200	; start of config frame
-cpid:	equ 0x0000	; pid of current process | byte
-crt:	equ 0x0001	; remaining runtime for current process (if 0 then jump) | byte
-rpm:	equ 0x0002	; map with 256 byte entries for registered processes | 256 bytes
-stsp:	equ 0x0102	; place to store a register | 2 bytes
-caller_ip:	equ 0x0104	; caller ip | 2 bytes
-caller_cs:	equ 0x0106	; caller cs | 2 bytes
+init:	mov si, 0x7c00	; point to code
+	xor di, di	; will be copied to 0x10000
+	mov ax, 0x1000	; set segment
+	mov es, ax
+	mov cx, init - end	; retrieve size
+.loop:	cs lodsb		; load data ...
+	es stosb		; ... and store it
+	loop .loop
+	jmp 0x1000:.start	; and jump
+.start:	cli			; disable interrupts
+	xchg ax, cx		; set ax to 0
+	push ax			; and save it
+	mov ds, ax		; set ds segment
+	ds mov ax, word [target_irq * 4]	; to retrieve the original values of the interrupt table
+	ds mov bx, word [target_irq * 4 + 2]
+	mov word [emu_irq_table], ax		; and store them for emulation
+	mov word [emu_irq_table + 2], bx
+	pop ax					; load saved ax
+	ds mov word [target_irq * 4], main	; set ip to main
+	ds mov word [target_irq * 4 + 2], ax	; and use ax
+	sti					; enable interrupts
+	call save_table				; create a table entry for bootOS (ax is still zero)
+	int 0x20				; and return
+main:	cs mov [stack_pointer_save], sp		; save stack
+	mov sp, stack				; set to a save stack
+	call save_table				; and save all registers and sanitise them
+	call next_pid				; goto next runnable pid
+	call emu_irq				; emulate original irq to not crash the systems
+	jmp return_execution			; return execution
+save_table:	ret				; todo
+next_pid:	ret				; todo
+emu_irq:	ret				; you guessed it: todo
+return_execution:	iret			; not todo (just kidding)
 
-proc_space:	equ 0x1000 + 32	; space for process descriptors
-proc_size:	equ 32		; size of descriptor
-max_proc:	equ 256
-stack:		equ 0x9000
-
-; proc descriptor format:
-; ip cs ax bx cx dx sp bp si di ds es ss flags priority <2 bytes free space> = 32 bytes
-
-init:	mov si, 0x7c00
-	push 0x1000
-	pop es
-	mov cx, 0x0200
-	mov si, 0x7c00
-	xor di, di
-.1:	cs lodsb	; load from cs
-	es stosb	; store in es (for 0x10000)
-	loop .1
-.2:	jmp 0x1000:.3
-.3:	mov word [0x0028 * 4], launch
-	mov word [0x0028 * 4 + 2], 0x1000
-	mov word [0x0001 * 4], main
-        mov word [0x0001 * 4 + 2], 0x1000
-	mov di, 0x0200
-	mov cx, 0xffff - 0x0200
-	xor ax, ax
-	rep stosb
-	jmp setup
-launch:	pusha
-	call find_free_proc
-	jc .err
-	inc byte [bx + frame + rpm]	; mark as running
-	call init_proc
-	popa
-	iret
-.err:	mov bp,sp
-        rcl byte [bp+4],1		; set carry
-	popa
-	iret
-setup:	pushf
-	mov bp, sp
-	or byte [bp + 1], 0b00000001
-	push word [0x0020 * 4 + 2]
-	push word [0x0020 * 4]
-	iret
-main:	pusha
-	
-	mov bp, sp
-        or byte [bp + 4 + 1], 0b00000001
-	popa
-	iret
-find_free_proc:	; bx = pid
-	xor bx, bx
-	clc
-	mov si, frame * rpm
-.1:	mov bx, si
-	lodsb
-	test bh, bh
-	jnz .2
-	test al, al
-	jnz .1
-	sub bx, frame + rpm
-	ret
-.2:	stc
-	xor bx, bx
-	ret
-init_proc:	; bx = pid
-		; cx:dx = cs:ip
-		; initalizes the proc space
-	mov [frame + stsp], sp	; save sp
-	call get_pos
-	xor ax, ax
-	push dx	; ip
-	push cx ; cs
-	push ax
-	push bx
-	mov cx, 9
-	rep cs push ax
-	push 0b0000000100000000	; trap flag
-	push 0x20		; priority
-	mov sp, [frame + stsp]
-	ret
-save_state:	; sp = entry
-	cs push word [frame + caller_ip]
-	cs push word [frame + caller_cs]
-	cs push ax
-	cs push bx
-	cs push cx
-	cs push dx
-	cs push sp
-	cs push bp
-	cs push si
-	cs push di
-	cs push ds
-	cs push es
-	cs push ss
-	mov sp, stack
-	cs push cs
-	cs pop ss
-	push cs
-	push cs
-	pop ds
-	pop es
-
-get_pos:	; bx = pid
-		; ret: bx = sp = pos
-	push ax
-	push cx
-	xchg ax, bx
-	mov cl, proc_size
-	mul cl
-	add ax, proc_space
-	xchg ax, bx
-	pop cx
-	pop ax
-	mov sp, bx
-	ret
+emu_irq_table:	dw 0, 0
+stack_pointer_save:	dw 0
+current_pid:	db 0
+end:
+times 510 - ($ - $$) nop
+db 0x55, 0xaa
