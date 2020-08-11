@@ -1,6 +1,8 @@
 	org 0x0000
 target_irq:	equ 0x08
 stack:		equ 0xf000
+pid_table:	equ 0x2000
+pid_entry_size:	equ 0x32	; ax, bx, cx, dx, cs, ip, ds, es, ss, bp, sp, flags (2), enabled; -> 27 ~ 32
 
 init:	mov si, 0x7c00	; point to code
 	xor di, di	; will be copied to 0x10000
@@ -25,20 +27,58 @@ init:	mov si, 0x7c00	; point to code
 	sti					; enable interrupts
 	call save_table				; create a table entry for bootOS (ax is still zero)
 	int 0x20				; and return
-main:	cs mov [stack_pointer_save], sp		; save stack
+main:	cs mov word [stack_pointer_save], sp		; save stack
 	mov sp, stack				; set to a save stack
 	call save_table				; and save all registers and sanitise them
 	call next_pid				; goto next runnable pid
 	call emu_irq				; emulate original irq to not crash the systems
 	jmp return_execution			; return execution
-save_table:	ret				; todo
+save_table:					; ax, bx, cx, dx, cs, ip, ds, es, ss, bp, sp, flags (2); -> 26 ~ 32
+	cs mov word [stack_pointer_save_t], sp	; save stack pointer
+	cs mov sp, word [current_pointer]
+	cs push ax
+	cs push bx
+	cs push cx
+	cs push dx
+	cs mov word [stack_pointer_save_t2], sp	; save sp
+	cs mov sp, word [stack_pointer_save]	; and load original sp
+	cs mov word [base_pointer_save], bp
+	mov bp, sp
+	mov cx, word [bp+0]			; get ip
+	mov dx, word [bp+2]			; get cs
+	mov bx, word [bp+4]			; get flags
+	cs mov bp, word [base_pointer_save]	; restore bp
+	cs mov sp, word [stack_pointer_save_t2]	; reset stack
+	cs push dx				; cs
+	cs push cx				; ip
+	mov ax, ds
+	cs push ax
+	mov ax, es
+	cs push ax
+	mov ax, ss
+	cs push ax
+	xor ax, ax
+	mov ss, ax				; we don't need cs anymore
+	push bp
+	cs mov ax, word [stack_pointer_save]
+	push ax
+	push bx					; flags
+	push 1					; is enabled?
+	cs mov sp, word [stack_pointer_save_t]
+	xor ax, ax
+	mov ds, ax
+	mov es, ax
+	ret
 next_pid:	ret				; todo
 emu_irq:	ret				; you guessed it: todo
 return_execution:	iret			; not todo (just kidding)
-
 emu_irq_table:	dw 0, 0
 stack_pointer_save:	dw 0
+stack_pointer_save_t:	dw 0
+stack_pointer_save_t2:   dw 0
+base_pointer_save:   dw 0
 current_pid:	db 0
+current_pointer:	dw 0
 end:
 times 510 - ($ - $$) nop
 db 0x55, 0xaa
