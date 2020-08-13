@@ -1,5 +1,6 @@
 	org 0x0000
-target_irq:	equ 0x08
+target_irq:	equ 0x1c
+safe_irq:	equ 0x30
 stack:		equ 0xf000
 pid_table:	equ 0x2000
 pid_entry_size:	equ 0x32	; ax, bx, cx, dx, cs, ip, ds, es, ss, bp, sp, flags (2), enabled; -> 27 ~ 32
@@ -19,19 +20,22 @@ init:	mov si, 0x7c00	; point to code
 	mov ds, ax		; set ds segment
 	ds mov ax, word [target_irq * 4]	; to retrieve the original values of the interrupt table
 	ds mov bx, word [target_irq * 4 + 2]
-	mov word [emu_irq_table], ax		; and store them for emulation
-	mov word [emu_irq_table + 2], bx
+	mov word [safe_irq * 4], ax		; and store them for emulation
+	mov word [safe_irq * 4 + 2], bx
 	pop ax					; load saved ax
 	ds mov word [target_irq * 4], main	; set ip to main
 	ds mov word [target_irq * 4 + 2], ax	; and use ax
 	sti					; enable interrupts
 	call save_table				; create a table entry for bootOS (ax is still zero)
+	mov ax, 0x0040
+	mov ds, ax
+	ds mov byte [0x00a0], 0x01		; disable rtc
 	int 0x20				; and return
-main:	cs mov word [stack_pointer_save], sp		; save stack
+main:	int safe_irq				; emulate original irq to not crash the systems
+	cs mov word [stack_pointer_save], sp	; save stack
 	mov sp, stack				; set to a save stack
 	call save_table				; and save all registers and sanitise them
 	call next_pid				; goto next runnable pid
-	call emu_irq				; emulate original irq to not crash the systems
 	jmp return_execution			; return execution
 save_table:					; ax, bx, cx, dx, cs, ip, ds, es, ss, bp, sp, flags (2); -> 26 ~ 32
 	cs mov word [stack_pointer_save_t], sp	; save stack pointer
@@ -70,9 +74,10 @@ save_table:					; ax, bx, cx, dx, cs, ip, ds, es, ss, bp, sp, flags (2); -> 26 ~
 	mov es, ax
 	ret
 next_pid:	ret				; todo
-emu_irq:	ret				; you guessed it: todo
-return_execution:	iret			; not todo (just kidding)
-emu_irq_table:	dw 0, 0
+return_execution:
+		mov al, 0x20
+		out 0x20, al
+		iret
 stack_pointer_save:	dw 0
 stack_pointer_save_t:	dw 0
 stack_pointer_save_t2:   dw 0
