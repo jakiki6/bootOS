@@ -65,6 +65,7 @@ with open("tmp.txt", "r") as file:
         except:
             pass
 content += '''
+%define bootOS.end 0x7bff
 %define exit int 0x20
 '''[1:]
 with open(sys.argv[2], "w") as file:

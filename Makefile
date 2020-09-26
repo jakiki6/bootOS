@@ -28,6 +28,7 @@ clean:
 	$(RM) *.lst
 	$(RM) lst/*.lst
 	$(RM) *.inc
+	-$(RM) software/ -fr
 
 .PHONY: run
 run: os.img
