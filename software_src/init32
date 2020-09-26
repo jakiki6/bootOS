@@ -25,11 +25,15 @@ start:
 pmode:
    mov  bx, 0x10          ; select descriptor 2, instead of 1
    mov  ds, bx            ; 10h = 10000b
+   mov  es, bx
+   mov  ss, bx
+   mov  fs, bx
+   mov  gs, bx
  
    and al,0xFE            ; back to realmode
    mov  cr0, eax          ; by toggling bit again
-   jmp 0x0:huge_unreal
 huge_unreal:
+   sti
    int 0x20
  
 gdtinfo:
