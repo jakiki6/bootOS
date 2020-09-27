@@ -56,7 +56,7 @@ _print:
 _exit:
 		mov ah,0x00
 		int 0x16
-		jmp far 0xffff:0x0000
+		jmp 0xffff:0x0000
 error1:
 	mov si, err1
 	jmp _print

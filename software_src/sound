@@ -1,7 +1,6 @@
 ;;;;;;;;
 ; File format:
-;	4 bytes delay: dw cx, dw dx
-;	508 bytes sound: dw sound
+;	512 bytes sound: dw sound
 ;;;;;;;;
 org 0x7c00
 bits 16
@@ -16,21 +15,14 @@ bits 16
 start:
 	call get_file
 	call tone_init
-	mov si, 0xc004
-	mov cx, word [0xc000]
-	mov dx, word [0xc002]
-	cmp cx, 0x00
-	jne loop
-	cmp dx, 0x00
-	jne loop
-	mov al, 0x13
-	int 0x22
-	int 0x20
+	mov si, 0xc000
+	mov cx, 1
+	mov dx, 0
 loop:
 	lodsw
 	call tone
 	cmp si, 0xc200
-	jb end
+	ja end
 	jmp loop
 	
 
@@ -65,8 +57,10 @@ tone:			; cx:dx time in ms
         out 0x42,al
         mov al,bh       ; High byte of timer count
         out 0x42,al
+	pusha
         mov ah, 0x86
 	int 0x15
+	popa
 	popa
 	ret
 end:
