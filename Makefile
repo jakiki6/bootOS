@@ -32,7 +32,7 @@ clean:
 
 .PHONY: run
 run: os.img
-	qemu-system-i386 -drive file=$<,format=raw -soundhw pcspk
+	qemu-system-i386 -drive file=$<,format=raw -serial stdio -s -soundhw pcspk
 .PHONY: install
 install:
 	dd if=os.img of=M
@@ -77,7 +77,7 @@ strip: os.img
 	python3 strip.py
 .PHONY: runkvm
 runkvm: os.img
-	qemu-system-x86_64 -drive file=$<,format=raw --enable-kvm -serial stdio -s
+	qemu-system-x86_64 -drive file=$<,format=raw --enable-kvm -serial stdio -s -soundhw pcspk
 .PHONY: symbols
 symbols:
 	python3 symbols.py os.asm sysmap.inc
