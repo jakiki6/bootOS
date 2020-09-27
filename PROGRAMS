@@ -52,3 +52,5 @@ screensaver:
   A Julia fractal screensaver.
 sound:
   Plays music.
+init32:
+  Initializes unreal mode. This allows other programs to access memory above 1MB. This program only works on 386+

@@ -1,9 +1,9 @@
- _                 _    ____   _____ 
-| |               | |  / __ \ / ____|
-| |__   ___   ___ | |_| |  | | (___  
-| '_ \ / _ \ / _ \| __| |  | |\___ \ 
-| |_) | (_) | (_) | |_| |__| |____) |
-|_.__/ \___/ \___/ \__|\____/|_____/    
+ _                   _     ____    _____ 
+| |                 | |   / __ \  / ____|
+| |__    ___    ___ | |_ | |  | || (___  
+| '_ \  / _ \  / _ \| __|| |  | | \___ \ 
+| |_) || (_) || (_) | |_ | |__| | ____) |
+|_.__/  \___/  \___/ \__||\____/ |_____/    
 
 bootOS operating system in 512 bytes (boot sector)
 by Oscar Toledo G. Jul/22/2019
@@ -17,7 +17,7 @@ Note: Commit 0cbeecb917e4e5008351c2adedafffd13c0e83ae is the result of 117 commi
 If you want to assemble it, you must download the Netwide Assembler
 (nasm) from www.nasm.us
 
-Use this command line:
+Use this command line for an empty image:
 
   nasm -f bin os.asm -l os.lst -o os.img
 
@@ -34,6 +34,9 @@ What is bootOS:
 
   This operating system runs programs as boot sectors
   at 0000:7c00. 
+
+  It needs at least an 80386 CPU to work properly with all commands.
+  If you only want the kernel to work, you should have at least an 80186 CPU.
 
   It provides the following services:
 
@@ -61,7 +64,7 @@ What is bootOS:
                 Affects: All registers (including ES).
      int 0x26	Input line and save it to 0x7780.
 		Entry: AL = promt character
-		Affects: I don't know
+		Affects: AX/BX/DX/BP/SI/DI
 
 Filesystem organization:
 
@@ -81,13 +84,15 @@ Filesystem organization:
   Each file is one sector long. Its location in the
   disk is derived from its position in the directory.
 
+  I'm currently working on a LBA variant. That could allow you to have 2TB of files.
+
 Starting bootOS kernel:
 
-  Just enter "make os.img run".
+  Just enter "make runkvm".
 
 Installing bootOS to an usb stick:
 
-  Just enter "sudo make install".
+  Just enter "sudo make install M=/path/to/usb".
 
 Installing bootOS with installer:
 
@@ -105,11 +110,11 @@ Installing bootOS with installer:
 
 Installing bootOS from a CD:
 
-  Just run "make cdimg" to make a CD image. Note: this feature is not longer maintained!
+  Just run "make cdimg" to make a CD image. Note: this feature is not longer maintained and may not work!
 
 Build bootOS with software:
 
-  Just enter "make software". This will compile all files in the software_src directory.
+  Just enter "make software". This will compile all files in the software_src directory and build the image.
         
 Full installation route:
 
@@ -132,7 +137,7 @@ bootOS commands:
                 appears and type the new name.
   #		Change the current section. Enter a section between 00 and ff behind the #.
 
-other commands:
+other external commands:
 
   disk		Change current disk. The disk number is stored at 0xffff in memory. Enter a disk number
 		between 00 and ff behind the @. 80 is the first hard disk. 00 is the first floppy disk.
@@ -140,7 +145,6 @@ other commands:
   push		Copy a program to 0xa000 from disk \
   pull		Copy a program to disk from 0xa000 / used for copying between disks and sections
   clear		Clear the screen.
-  pullinst	Does the same like pullcp and disk in one command.
 
 For example: (Character + is Enter key)
 

@@ -49,7 +49,7 @@ Section 2:
 	  The base program is very simple:
 	    org 0x7c00
 	    bits 16
-	    int 0x20
+	    exit
 	2.2 A reference for all interrupts provided by bootOS
 	    int 0x20   Exit to operating system.
 	    int 0x21   Input key and show in screen.
@@ -82,15 +82,16 @@ Section 2:
 	    * DW HD
 	  DB S is the offset where you can change the section. It's one byte.
 	  DW HD is the offset where you can change the drive and head. It's a word 0xhhdd.
-	  Note: it's safer and more beatiful tu use the symbols in sysmap.inc!
+	  Note: it's safer and more beatiful to use the symbols in sysmap.inc!
 	2.4 The breakpoint
 	  If you want your code to run every loop before the "int int_input_line", you can replace the
 	  interrupt 0x27 with your code. This is used in the clock as you can see.
 	2.5 sysmap.inc
 	  sysmap.inc can be generated with "make symbols" and can be used to link your program
 	  to the running system. You just have to add '%include "../sysmap.inc"' to use the labels.
-	  This can be very useful to not waste space for code you have already in memory.
-	  Note: labels start with "bootOS.". (e.g. "bootOS.restart")
+	  This can be very useful to not waste space for code you already have in memory.
+	  Labels start with "bootOS.". (e.g. "bootOS.restart")
+          This file provides the exit instruction.
 	2.6 32-bit access
 	  Note: this article is about init32.
 	  A 80386 or higher microprocessor allows you to access memory with 32-bit registers
