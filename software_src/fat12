@@ -1,0 +1,3 @@
+%define MODULE "../shared/fat12.asm"
+
+%include "../shared/fsloader.asm"
