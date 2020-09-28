@@ -468,15 +468,15 @@ cs_command:
         ; Commands supported by bootOS
         ;
 commands:
-        db 2,"ls"
-        dw ls_command
-        db 4,"edit"
-        dw edit_command
-        db 2,"rm"
-        dw rm_command
+	db 2,"ls"
+.ls:	dw ls_command
+	db 4,"edit"
+.edit:	dw edit_command
+	db 2,"rm"
+.rm:	dw rm_command
 	db 1,"#"
-	dw cs_command
-        db 0
+.cs:	dw cs_command
+	db 0
 
 int_restart:            equ 0x20
 int_input_key:          equ 0x21
