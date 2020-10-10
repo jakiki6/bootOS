@@ -35,7 +35,7 @@ run: os.img
 	qemu-system-i386 -drive file=$<,format=raw -serial stdio -s -soundhw pcspk
 .PHONY: install
 install:
-	dd if=os.img of=M
+	dd if=os.img of=$M
 .PHONY: push
 push: clean software
 	mv os.img osall.iso

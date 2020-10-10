@@ -239,11 +239,9 @@ find_file:
         pop si
         call filename_length    ; Get filename length and setup DI
 os6:
-        push si
-	push di
+        pusha
 	repe cmpsb      ; Compare name with entry
-	pop di
-        pop si
+	popa
         je get_location ; Jump if equal.
         call next_entry
         jne os6         ; No, jump
@@ -262,8 +260,7 @@ next_entry:
         ;   DI = Pointer to entry in directory.
         ;
         ; Result
-        ;   CH = Track number in disk.
-        ;   CL = Sector (always 0x01).
+        ;   CL = Sector
         ;
         ; The position of a file inside the disk depends on its
         ; position in the directory. The first entry goes to
@@ -271,7 +268,7 @@ next_entry:
         ;
 get_location:
 	mov cx, di
-	sub cx, (sector-entry_size) - (1 << 4)
+	sub cx, sector - entry_size - (1 << 4)
 ;        lea cx,[di-(sector-entry_size)] ; Get entry pointer into directory
                         ; Plus one entry (files start on track 1)
         shr cx,4        ; Divide by 16
@@ -303,6 +300,7 @@ disk_dir:
         ;   CL = Sector number
         ;
 disk:
+	clc
         pusha
 	push cs
 	pop ds
@@ -495,9 +493,5 @@ interrupt_table:
 
         times 510-($-$$) db 0x00
         db 0x55,0xaa            ; Make it a bootable sector
-
-db "Test"
-times (512 - 4) db 0x00
-int 0x20
 
 times (2880 * 512) - ($ - $$) db 0x00
