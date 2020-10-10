@@ -26,7 +26,7 @@ start:
         mov es,ax
         mov ss,ax
         mov sp,stack    ; Set stack to guarantee data safety
-        mov [_disk2 + 1], dl
+        mov [disk.1 + 1], dl
 
         cld             ; Clear D flag.
         mov si,boot     ; Copy bootOS boot sector...
@@ -36,17 +36,18 @@ start:
 
         mov si,interrupt_table ; SI now points to interrupt_table 
         mov di,0x0020*4 ; Address of service for int 0x20
-        mov cl,9
+        mov cl,7
 .load_vec:
         movsw           ; Copy IP address
         stosw           ; Copy CS address
         loop .load_vec
-	int 0x20
+	int 0x20	; Jump to real main and set CS:IP to fix the issue with some BIOSes
         ;
         ; Warm start of bootOS
         ;
 restart:
         cld             ; Clear D flag.
+	clc
         push cs         ; Reinit all segment registers
         push cs
         push cs
@@ -64,7 +65,7 @@ restart:
         mov di,commands ; Point to commands list
 
         ; Notice that filenames starting with same characters
-        ; won't be recognized as such (so file dirab cannot be
+        ; won't be recognized as such (so file lsab cannot be
         ; executed).
 os11:
         mov al,[di]     ; Read length of command in chars
@@ -94,9 +95,9 @@ os12:   mov bx,si       ; Input pointer
         ; File not found error
         ;
 os7:
-	mov si,error_message
-        call output_string
-        int int_restart ; Go to expect another command
+	mov al, 0x13
+	call output_char
+        int int_restart
 
         ;
         ; >> COMMAND <<
@@ -163,7 +164,7 @@ load_file:
         push di         ; Save destination
         push es
         call find_file  ; Find the file (sanitizes ES)
-        mov ah,0x02     ; Read sector
+        mov ah,0x42     ; Read sector
 shared_file:
         pop es
         pop bx          ; Restore destination on BX
@@ -204,7 +205,7 @@ save_file:
         call write_dir          ; Save directory
         pop di
         call get_location       ; Get location of file
-        mov ah,0x03             ; Write sector
+        mov ah,0x43             ; Write sector
         jmp shared_file
 
         ;
@@ -220,7 +221,8 @@ delete_file:
         call find_file          ; Find file (sanitizes ES)
         jc ret_cf               ; If carry set then not found, jump.
         mov cx,entry_size
-        call write_zero_dir     ; Fill whole entry with zero. Write directory.
+        mov ah, 0x00
+	rep stosb
         jmp ret_cf
 
         ;
@@ -238,11 +240,9 @@ find_file:
         call filename_length    ; Get filename length and setup DI
 os6:
         push si
-        push di
-        push cx
-        repe cmpsb      ; Compare name with entry
-        pop cx
-        pop di
+	push di
+	repe cmpsb      ; Compare name with entry
+	pop di
         pop si
         je get_location ; Jump if equal.
         call next_entry
@@ -251,7 +251,7 @@ os6:
 
 next_entry:
         add di,byte entry_size          ; Go to next entry.
-        cmp di,sector+sector_size       ; Complete directory?
+        cmp di,sector+sector_size-entry_size	; Complete directory?
         stc                             ; Error, not found.
         ret
 
@@ -270,14 +270,11 @@ next_entry:
         ; track 1, the second entry to track 2 and so.
         ;
 get_location:
-        lea ax,[di-(sector-entry_size)] ; Get entry pointer into directory
+	mov cx, di
+	sub cx, (sector-entry_size) - (1 << 4)
+;        lea cx,[di-(sector-entry_size)] ; Get entry pointer into directory
                         ; Plus one entry (files start on track 1)
-        mov cl,4        ; 2^(8-4) = entry_size
-        shr ax,cl       ; Shift left and clear Carry flag
-        inc ax          ; AL = Sector 1
-	inc ax
-	;or ah, ah
-        xchg ax,cx      ; CH = Track, CL = Sector
+        shr cx,4        ; Divide by 16
         ret
 
         ;
@@ -286,44 +283,41 @@ get_location:
 read_dir:
         push cs         ; bootOS code segment...
         pop es          ; ...to sanitize ES register
-        mov ah,0x02
+        mov ah,0x42
         jmp short disk_dir
-
-write_zero_dir:
-        mov al,0
-        rep stosb
 
         ;
         ; Write the directory to disk
         ;
 write_dir:
-        mov ah,0x03
+        mov ah,0x43
 disk_dir:
         mov bx,sector
-        mov cx,0x0002
+        mov cl, 0x01
         ;
         ; Do disk operation.
         ;
         ; Input:
-        ;   AH = 0x02 read disk, 0x03 write disk
+        ;   AH = 0x42 read disk, 0x43 write disk
         ;   ES:BX = data source/target
-        ;   CH = Track number
         ;   CL = Sector number
         ;
 disk:
         pusha
-        mov al,0x01     ; AL = 1 sector
-_disk1:
-%assign db_pos ($ - $$ + 1)
-%warning DB S is located at offset db_pos
-	mov ch, 0x00
+	push cs
+	pop ds
+        mov si, dap
+	mov bp, si
+	mov word [bp + (dap.offset_offset - dap)], bx
+	mov word [bp + (dap.offset_segment - dap)], es
+	and byte [bp + (dap.lba_lower - dap)], 0b11100000
+	and cl, 0b00011111
+	or byte [bp + (dap.lba_lower - dap)], cl
+.1:
 _disk2:
-%assign dw_pos ($ - $$ + 1)
-%warning DW HD is located at offset dw_pos
-        mov dx, 0x0080; DH = Drive A. DL = Head 0.
+	mov dl, 0x80
         int 0x13
         popa
-	jc disk
         ret
 
         ;
@@ -345,12 +339,11 @@ os1:    cmp al,0x08     ; Backspace?
         cmp si, di
         je os2_
         dec di          ; Erase a character
-        push ax
         mov al, " "
         int int_output_char
         mov al, 0x08
         int int_output_char
-        pop ax
+        mov al, dl
 os2:    int int_input_key  ; Read keyboard
         cmp al,0x0d     ; CR pressed?
         jne os10
@@ -368,7 +361,6 @@ os2_:   mov al, dl
 input_key:
         mov ah,0x00
         int 0x16
-	int 0x27
         ;
         ; Screen output of character contained in al
         ; Expands 0x0d (CR) into 0x0a 0x0d (LF CR)
@@ -376,9 +368,10 @@ input_key:
 output_char:
         cmp al,0x0d
         jne os3
+	push ax
 	mov al, 0x0a
         int int_output_char
-        mov al,0x0d
+        pop ax
 os3:
         mov ah,0x0e     ; Output character to TTY
         mov bx,0x0007   ; Gray. Required for graphic modes
@@ -395,7 +388,7 @@ irt:    iret
         ;   It supposes that SI never points to a zero length string.
         ;
 output_string:
-        lodsb                   ; Read character
+        cs lodsb                ; Read character
         int int_output_char     ; Output to screen
         cmp al,0x00             ; Is it 0x00 (terminator)?
         jne output_string       ; No, the loop continues
@@ -416,8 +409,7 @@ os23:   push di
         je os20                 ; Yes, jump
 os19:   call xdigit             ; Get a hexadecimal digit
         jnc os23
-        mov cl,4
-        shl al,cl
+        shl al,4
         xchg ax,cx
         call xdigit             ; Get a hexadecimal digit
         or al,cl
@@ -449,34 +441,37 @@ xdigit:
 os15:
         ret
 
-cs_command:
-	mov si, line + 2
-	xor ax, ax
-	xchg ax, cx
-	call xdigit             ; Get a hexadecimal digit
-        mov cl,4
-        shl al,cl
-        xchg ax,cx
-        call xdigit             ; Get a hexadecimal digit
-        or al,cl
-        mov byte [_disk1 + 1], al
-	ret
-
 
 
         ;
         ; Commands supported by bootOS
         ;
 commands:
-	db 2,"ls"
-.ls:	dw ls_command
-	db 4,"edit"
-.edit:	dw edit_command
-	db 2,"rm"
-.rm:	dw rm_command
-	db 1,"#"
-.cs:	dw cs_command
-	db 0
+        db 2,"ls"
+        dw ls_command
+        db 4,"edit"
+        dw edit_command
+        db 2,"rm"
+        dw rm_command
+
+%assign dap_pos ($ - $$)
+%warning Dap at dap_pos
+dap:
+.header:
+	db 0x10	 	; header
+.unused:
+	db 0x00		; unused
+.count:
+	dw 0x0001	; number of sectors
+.offset_offset:
+	dw 0		; offset
+.offset_segment
+	dw 0		; offset
+.lba_lower:
+	dq 0		; lba
+.lba_upper:
+	dq 0		; lba
+
 
 int_restart:            equ 0x20
 int_input_key:          equ 0x21
@@ -494,13 +489,15 @@ interrupt_table:
         dw save_file        ; int 0x24
         dw delete_file      ; int 0x25
 	dw input_line	    ; int 0x26
-	dw irt              ; nop
-	dw os7		    ; mt
 
-error_message:
-	db 0x13
-%assign size 509 - ($ - $$)
-%warning size bytes left
+;error_msg:
+;	db 0x13, 0x00
+
         times 510-($-$$) db 0x00
         db 0x55,0xaa            ; Make it a bootable sector
-times (2879 * 512) db 0x00
+
+db "Test"
+times (512 - 4) db 0x00
+int 0x20
+
+times (2880 * 512) - ($ - $$) db 0x00
