@@ -221,9 +221,8 @@ delete_file:
         call find_file          ; Find file (sanitizes ES)
         jc ret_cf               ; If carry set then not found, jump.
         mov cx,entry_size
-        mov ah, 0x00
-	rep stosb
-        jmp ret_cf
+        call write_zero_dir
+	jmp ret_cf
 
         ;
         ; Find file
@@ -283,6 +282,9 @@ read_dir:
         mov ah,0x42
         jmp short disk_dir
 
+write_zero_dir:
+        mov al,0
+        rep stosb
         ;
         ; Write the directory to disk
         ;
