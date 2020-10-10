@@ -463,7 +463,7 @@ dap:
 	dw 0x0001	; number of sectors
 .offset_offset:
 	dw 0		; offset
-.offset_segment
+.offset_segment:
 	dw 0		; offset
 .lba_lower:
 	dq 0		; lba
