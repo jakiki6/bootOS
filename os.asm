@@ -317,6 +317,7 @@ disk:
 _disk2:
 	mov dl, 0x80
         int 0x13
+	jc disk
         popa
         ret
 
@@ -458,7 +459,7 @@ commands:
 %warning Dap at dap_pos
 dap:
 .header:
-	db 0x10	 	; header
+	db .end - dap	; header
 .unused:
 	db 0x00		; unused
 .count:
@@ -471,6 +472,7 @@ dap:
 	dq 0		; lba
 .lba_upper:
 	dq 0		; lba
+.end:
 
 
 int_restart:            equ 0x20

@@ -12,11 +12,14 @@ for r, _, f in os.walk("software/"):
         files.append(file.encode())
 flash = bytearray(0)
 
-for s in range(0, math.ceil(len(files) / 32)):
+for s in range(0, math.ceil(len(files) / 23)):
     dir = bytearray(16 * 32)
     file_space = bytearray(512 * 2879)
-    for i in range(0, len(files)):
-        file = files[i]
+    for i in range(0, 23):
+        try:
+            file = files[i + s * 23]
+        except:
+            break
         with open("software/" + file.decode(), "rb") as f:
             content = f.read()
             if len(content) > 512:

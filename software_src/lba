@@ -1,0 +1,53 @@
+	org 0x7c00
+	bits 16
+	%include "../sysmap.inc"
+start:	mov ax, 0x0e00 | "-"
+	mov dx, 0x0e00 | "_"
+	mov bx, 0x0007
+	mov cx, 9
+	push ax
+	mov al, " "
+	int 0x10
+	pop ax
+.loop:	int 0x10
+	xchg ax, dx
+	loop .loop
+	mov al, 0x0a
+	int 0x10
+	mov al, 0x0d
+	int 0x10
+	mov al, "#"
+        int 0x26
+	push cs
+	pop ds
+
+        mov byte [bootOS.dap.lba_upper + 3], al
+        call get_hex
+        mov byte [bootOS.dap.lba_upper + 2], al
+        call get_hex
+        mov byte [bootOS.dap.lba_upper + 1], al
+        call get_hex
+        mov byte [bootOS.dap.lba_upper], al
+
+	mov al, "@"
+	int 0x26
+
+	call get_hex
+	mov byte [bootOS.dap.lba_lower + 3], al
+        call get_hex
+        mov byte [bootOS.dap.lba_lower + 2], al
+        call get_hex
+        mov byte [bootOS.dap.lba_lower + 1], al
+        call get_hex
+        mov byte [bootOS.dap.lba_lower], al
+
+end:	int 0x20
+
+get_hex:
+	clc
+	call bootOS.xdigit             ; Get a hexadecimal digit
+        shl al, 4
+        xchg ax,cx
+        call bootOS.xdigit             ; Get a hexadecimal digit
+        or al,cl
+	ret
