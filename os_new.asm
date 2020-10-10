@@ -271,7 +271,7 @@ next_entry:
         ;
 get_location:
 	mov cx, di
-	sub cx, (sector-entry_size) - (2 << 4)
+	sub cx, (sector-entry_size) - (1 << 4)
 ;        lea cx,[di-(sector-entry_size)] ; Get entry pointer into directory
                         ; Plus one entry (files start on track 1)
         shr cx,4        ; Divide by 16
@@ -293,7 +293,7 @@ write_dir:
         mov ah,0x43
 disk_dir:
         mov bx,sector
-        mov cl, 0x03
+        mov cl, 0x01
         ;
         ; Do disk operation.
         ;
@@ -466,9 +466,9 @@ dap:
 	dw 0		; offset
 .offset_segment
 	dw 0		; offset
-.lba_upper:
-	dq 0		; lba
 .lba_lower:
+	dq 0		; lba
+.lba_upper:
 	dq 0		; lba
 
 
