@@ -462,7 +462,7 @@ commands:
         dw edit_command
         db 2,"rm"
         dw rm_command
-	db 3,"sl"
+	db 2,"sl"
 	dw os20
 	db 2,"rl"
 	dw 0x7c00

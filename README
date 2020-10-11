@@ -129,8 +129,8 @@ bootOS commands:
                 It also allows to copy the last executed
                 program just press Enter when the '<' prompt
                 appears and type the new name.
-  rl			Run last program
-  sl			Save last program to disk
+  rl		Run last program
+  sl		Save last program to disk
 
 other external commands:
 
