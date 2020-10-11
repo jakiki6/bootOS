@@ -320,15 +320,13 @@ disk:
 	mov bp, si
 	mov word [bp + (dap.offset_offset - dap)], bx
 	mov word [bp + (dap.offset_segment - dap)], es
-	and byte [bp + (dap.lba_lower - dap)], 0b11100000
-	and cl, 0b00011111
-	or byte [bp + (dap.lba_lower - dap)], cl
+	mov byte [bp + (dap.lba_lower - dap)], cl
 .1:
 _disk2:
 	mov dl, 0x80
         int 0x13
+	popa
 	jc disk
-        popa
         ret
 
         ;
@@ -408,7 +406,7 @@ output_string:
         ret
 
         ;
-        ; 'enter' command
+        ; 'edit' command
         ;
 edit_command:
         mov di,boot             ; Point to boot sector
@@ -465,32 +463,22 @@ commands:
         db 2,"rm"
         dw rm_command
 
-%assign dap_pos ($ - $$)
-%warning Dap at dap_pos
 dap:	equ 0x7700
-dap.header: \
-	equ 0x7700
+dap.header:	equ 0x7700
 ;	db .end - dap	; header
-dap.unused: \
-	equ 0x7701
+dap.unused:	equ 0x7701
 ;	db 0x00		; unused
-dap.count: \
-	equ 0x7702
+dap.count:	equ 0x7702
 ;	dw 0x0001	; number of sectors
-dap.offset_offset: \
-	equ 0x7704
+dap.offset_offset:	equ 0x7704
 ;	dw 0		; offset
-dap.offset_segment: \
-	equ 0x7706
+dap.offset_segment:	equ 0x7706
 ;	dw 0		; offset
-dap.lba_lower: \
-	equ 0x7708
+dap.lba_lower:	equ 0x7708
 ;	dq 0		; lba
-dap.lba_upper: \
-	equ 0x770c
+dap.lba_upper:	equ 0x770c
 ;	dq 0		; lba
-dap.end: \
-	equ 0x7710
+dap.end:	equ 0x7710
 
 
 int_restart:            equ 0x20
@@ -513,7 +501,10 @@ interrupt_table:
 error_msg:
 	db 0x13, 0x00
 
-        times 510-($-$$) db 0x00
+%assign space_left 510-($-$$)
+%warning space_left bytes left
+
+        times space_left db 0x00
         db 0x55,0xaa            ; Make it a bootable sector
 
 times (2880 * 512) - ($ - $$) db 0x00

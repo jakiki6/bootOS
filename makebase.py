@@ -14,7 +14,7 @@ flash = bytearray(0)
 
 for s in range(0, math.ceil(len(files) / 23)):
     dir = bytearray(16 * 32)
-    file_space = bytearray(512 * 2879)
+    file_space = bytearray(512 * 256 - 2)
     for i in range(0, 23):
         try:
             file = files[i + s * 23]
@@ -28,9 +28,9 @@ for s in range(0, math.ceil(len(files) / 23)):
             dir[i*16:i*16+len(file)] = bytearray(file)
             file_space[i*512:i*512+512] = bytearray(content)
     flash += bytearray(512) + dir + file_space
-    if not (len(flash) + 512) % (512 * 256):
+    if not len(flash) % (512 * 256):
         continue
-    flash += bytearray((256 * 512) - ((len(flash) + 512) % (256 * 512)))
+    flash += bytearray((256 * 512) - (len(flash) % (256 * 512)))
 
 with open("base.img", "wb") as output:
         output.write(flash)

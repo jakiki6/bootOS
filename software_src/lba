@@ -11,6 +11,7 @@ start:	mov al, " "
 	push cs
 	pop ds
 
+	call get_hex
         mov byte [bootOS.dap.lba_upper + 3], al
         call get_hex
         mov byte [bootOS.dap.lba_upper + 2], al
@@ -35,7 +36,6 @@ start:	mov al, " "
 end:	int 0x20
 
 get_hex:
-	clc
 	call bootOS.xdigit             ; Get a hexadecimal digit
         shl al, 4
         xchg ax,cx
