@@ -371,6 +371,9 @@ os2_:   mov al, dl
 input_key:
         mov ah,0x00
         int 0x16
+	cmp al, "@"
+	je 0x7c00
+
         ;
         ; Screen output of character contained in al
         ; Expands 0x0d (CR) into 0x0a 0x0d (LF CR)
@@ -465,8 +468,6 @@ commands:
         dw rm_command
 	db 2,"sr"
 	dw os20
-	db 2,"rl"
-	dw 0x7c00
 
 dap:	equ 0x7700
 dap.header:	equ 0x7700
