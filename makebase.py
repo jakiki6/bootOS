@@ -27,10 +27,10 @@ for s in range(0, math.ceil(len(files) / 23)):
                 continue
             dir[i*16:i*16+len(file)] = bytearray(file)
             file_space[i*512:i*512+512] = bytearray(content)
-    flash += dir + file_space
-    if not len(flash) % 256:
+    flash += bytearray(512) + dir + file_space
+    if not (len(flash) + 512) % (512 * 256):
         continue
-    flash += bytearray(256 - (len(flash) % 256))
+    flash += bytearray((256 * 512) - ((len(flash) + 512) % (256 * 512)))
 
 with open("base.img", "wb") as output:
         output.write(flash)

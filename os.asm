@@ -1,6 +1,6 @@
 bits 16
 
-stack:  equ 0x7700      ; Stack pointer (grows to lower addresses)
+stack:  equ 0x7600      ; Stack pointer (grows to lower addresses)
 line:   equ 0x7780      ; Buffer for line input
 sector: equ 0x7800      ; Sector data for directory
 osbase: equ 0x7a00      ; bootOS location
@@ -41,6 +41,16 @@ start:
         movsw           ; Copy IP address
         stosw           ; Copy CS address
         loop .load_vec
+	mov di, dap
+	mov cx, dap.end - dap
+	push di
+	rep stosb
+	pop di
+	xchg ax, cx
+	stosb
+	inc di
+	mov al, 0x01
+	stosw
 	int 0x20	; Jump to real main and set CS:IP to fix the issue with some BIOSes
         ;
         ; Warm start of bootOS
@@ -95,8 +105,8 @@ os12:   mov bx,si       ; Input pointer
         ; File not found error
         ;
 os7:
-	mov al, 0x13
-	call output_char
+	mov si, error_msg
+	call output_string
         int int_restart
 
         ;
@@ -457,22 +467,30 @@ commands:
 
 %assign dap_pos ($ - $$)
 %warning Dap at dap_pos
-dap:
-.header:
-	db .end - dap	; header
-.unused:
-	db 0x00		; unused
-.count:
-	dw 0x0001	; number of sectors
-.offset_offset:
-	dw 0		; offset
-.offset_segment:
-	dw 0		; offset
-.lba_lower:
-	dq 0		; lba
-.lba_upper:
-	dq 0		; lba
-.end:
+dap:	equ 0x7700
+dap.header: \
+	equ 0x7700
+;	db .end - dap	; header
+dap.unused: \
+	equ 0x7701
+;	db 0x00		; unused
+dap.count: \
+	equ 0x7702
+;	dw 0x0001	; number of sectors
+dap.offset_offset: \
+	equ 0x7704
+;	dw 0		; offset
+dap.offset_segment: \
+	equ 0x7706
+;	dw 0		; offset
+dap.lba_lower: \
+	equ 0x7708
+;	dq 0		; lba
+dap.lba_upper: \
+	equ 0x770c
+;	dq 0		; lba
+dap.end: \
+	equ 0x7710
 
 
 int_restart:            equ 0x20
@@ -492,8 +510,8 @@ interrupt_table:
         dw delete_file      ; int 0x25
 	dw input_line	    ; int 0x26
 
-;error_msg:
-;	db 0x13, 0x00
+error_msg:
+	db 0x13, 0x00
 
         times 510-($-$$) db 0x00
         db 0x55,0xaa            ; Make it a bootable sector

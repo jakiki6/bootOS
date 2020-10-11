@@ -47,11 +47,9 @@ software: os.img symbols
 	mkdir software
 	bash makesoftware.sh
 	python3 makebase.py $(EXCLUDE)
-	dd if=$< bs=512 count=1 > tmp.img
-	mv tmp.img os.img
-	cat base.img >> os.img
+	dd if=$< of=base.img conv=notrunc bs=512 count=1
+	mv base.img os.img
 	rm -fr software
-	rm base.img
 .PHONY: installer
 installer: symbols
 	nasm -f bin -o installer.img installer.asm
