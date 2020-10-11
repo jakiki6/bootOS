@@ -2,24 +2,24 @@ import os, shutil, sys, math
 
 files = []
 
-for r, _, f in os.walk("software/"):
-    for file in f:
-        if os.path.abspath(os.path.join(file, r)) in [os.path.abspath(i) for i in sys.argv]:
+with open("software.txt", "r") as file:
+    for line in file.readlines():
+        if line.startswith("#"):
             continue
-        if len(file) > 16:
-            print(f + " has a too big filename")
-            continue
-        files.append(file.encode())
+        line = line[:-1]
+        c = []
+        for file in line.split(" "):
+            c.append(file.encode())
+        files.append(c)
+
 flash = bytearray(0)
 
-for s in range(0, math.ceil(len(files) / 23)):
+for s in range(0, len(files)):
     dir = bytearray(16 * 32)
     file_space = bytearray(512 * 256 - 2)
-    for i in range(0, 23):
-        try:
-            file = files[i + s * 23]
-        except:
-            break
+    container = files[s]
+    for i in range(0, len(container)):
+        file = container[i]
         with open("software/" + file.decode(), "rb") as f:
             content = f.read()
             if len(content) > 512:

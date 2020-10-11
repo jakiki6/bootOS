@@ -1,4 +1,5 @@
 bits 16
+cpu 186
 
 stack:  equ 0x7600      ; Stack pointer (grows to lower addresses)
 line:   equ 0x7780      ; Buffer for line input
@@ -462,7 +463,7 @@ commands:
         dw edit_command
         db 2,"rm"
         dw rm_command
-	db 2,"sl"
+	db 2,"sr"
 	dw os20
 	db 2,"rl"
 	dw 0x7c00
