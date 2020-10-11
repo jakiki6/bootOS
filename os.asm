@@ -371,7 +371,7 @@ os2_:   mov al, dl
 input_key:
         mov ah,0x00
         int 0x16
-	cmp al, "@"
+	cmp al, ";"
 	je 0x7c00
 
         ;
