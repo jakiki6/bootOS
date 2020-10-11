@@ -462,6 +462,10 @@ commands:
         dw edit_command
         db 2,"rm"
         dw rm_command
+	db 3,"sl"
+	dw os20
+	db 2,"rl"
+	dw 0x7c00
 
 dap:	equ 0x7700
 dap.header:	equ 0x7700

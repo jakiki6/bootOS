@@ -16,11 +16,11 @@ Section 1:
 
 	1.2 What are the benefits of this bootOS?
 	  * Better line handling
-	  * More filespace (65536% more xD)
+	  * More filespace (uses LBA)
 	  * More interrupts
           * Geometry independent
 	  * Software builder
-	  * Files from both versions doesn't collide
+	  * Unlimited files
 
 	1.3 How can I run it?
 	  First of all, you need the packages "nasm", "qemu-kvm", "make" and "python3".

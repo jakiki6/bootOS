@@ -1,7 +1,2 @@
-os_new.asm:
-  This is a new project aiming at using LBA addressing instead of CHS addressing. I had a lot
-  of trouble getting the DAP (Disk Addressing Packet) valid .(I've changed the Wikipedia entry of int 13h
-  and added a note about the order of the LBA). My other problem is, that it's not working (yet).
-
 multitd:
   This is a primitive multi threader. Not working yet.

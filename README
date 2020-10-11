@@ -71,20 +71,14 @@ Filesystem organization:
   Each entry in the directory is 16 bytes wide, and
   contains the ASCII name of the file finished with a
   zero byte. A sector has a capacity of 512 bytes, it
-  means only 32 files can be kept in one section and
-  8192 files in total on one disk. Each section is an own track.
-  The disk can be divided by heads. There are 256 posssible heads.
-  (Note: MS-DOS crashes if there are 256 heads. That's why some BIOSes
-  only implement 255 heads from 0x00 to 0xfe)
-  This means that one disk can theoretically keep up to 2097152 files
-  with a final size of 1 GiB which is the half of that what FAT16 can keep.
+  means only 32 files can be kept in one section.
+  Each section has a size of 256 sectors.
+  Since it works with LBA the disk can keep up to 2TB of data.
   
   Deleting a file is a matter of zeroing a whole entry.
 
   Each file is one sector long. Its location in the
   disk is derived from its position in the directory.
-
-  I'm currently working on a LBA variant. That could allow you to have 2TB of files.
 
 Starting bootOS kernel:
 
@@ -135,13 +129,13 @@ bootOS commands:
                 It also allows to copy the last executed
                 program just press Enter when the '<' prompt
                 appears and type the new name.
-  #		Change the current section. Enter a section between 00 and ff behind the #.
+  rl			Run last program
+  sl			Save last program to disk
 
 other external commands:
 
   disk		Change current disk. The disk number is stored at 0xffff in memory. Enter a disk number
 		between 00 and ff behind the @. 80 is the first hard disk. 00 is the first floppy disk.
-  head		Change current head
   push		Copy a program to 0xa000 from disk \
   pull		Copy a program to disk from 0xa000 / used for copying between disks and sections
   clear		Clear the screen.
