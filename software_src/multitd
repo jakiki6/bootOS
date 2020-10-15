@@ -5,6 +5,20 @@ base:	equ 0x1000
 obase:	equ 0x7c00
 basesg:	equ 0x1000
 
+save:	equ 0x1400
+save_sp: \
+	equ save - 0
+save_ss: \
+	equ save_sp - 2
+save_ds: \
+	equ save_ss - 2
+save_es: \
+	equ save_ds - 2
+save_regs: \
+	equ save_es - 2
+save_end: \
+	equ save_regs - 2
+
 	org base
 	bits 16
 
@@ -33,12 +47,56 @@ start:	push cs
         es mov word [backup * 4 + 2], ax
 	es mov word [target * 4], irq
 	es mov word [target * 4 + 2], basesg
+
+	mov al, 0b00110100
+	out 0x43, al
+
+	mov ax, 0x1000
+	out 0x40, al
+	mov al, ah
+	out 0x40, al
+
 	sti
 	int 0x20
 irq:	int backup
+	jmp irq_save
+.ret:	jmp irq_load
+
+
+irq_save:
+	; structure:
+	;	regs es ds ss sp
+	;	 = 14 bytes            \ save
+	cs mov word [save_sp], sp
+	mov sp, save_ss + 2
+	cs push ss
+	cs push cs
+	cs pop ss
+
+	; Save segments
+	push ds
+	push es
+
+	; Save regs	
 	pusha
-	mov ax, 0x0e00 | "."
-	mov bx, 0x0007
-	int 0x10
+	
+	mov bx, word [save_sp]
+	mov ax, word [bx + 4]	; flags
+	push ax
+
+	mov sp, stack
+	push cs
+	pop ds
+	push cs
+	pop es
+
+	jmp irq.ret
+
+irq_load:
+	mov sp, save_end
 	popa
+	pop es
+	pop ds
+	pop ss
+	cs pop sp
 	iret
