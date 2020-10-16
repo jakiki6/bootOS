@@ -7,17 +7,9 @@ basesg:	equ 0x1000
 
 save:	equ 0x1400
 save_sp: \
-	equ save - 0
+	equ save + 0
 save_ss: \
-	equ save_sp - 2
-save_ds: \
-	equ save_ss - 2
-save_es: \
-	equ save_ds - 2
-save_regs: \
-	equ save_es - 2
-save_end: \
-	equ save_regs - 2
+	equ save_sp + 2
 
 	org base
 	bits 16
@@ -59,30 +51,22 @@ start:	push cs
 	sti
 	int 0x20
 irq:	int backup
+	iret
 	jmp irq_save
 .ret:	jmp irq_load
 
 
 irq_save:
 	; structure:
-	;	regs es ds ss sp
+	;	es ds regs ip cs flags
 	;	 = 14 bytes            \ save
-	cs mov word [save_sp], sp
-	mov sp, save_ss + 2
-	cs push ss
-	cs push cs
-	cs pop ss
-
-	; Save segments
+	pusha
 	push ds
 	push es
 
-	; Save regs	
-	pusha
-	
-	mov bx, word [save_sp]
-	mov ax, word [bx + 4]	; flags
-	push ax
+	cs mov word [save_sp], sp
+	cs mov word [save_ss], ss
+
 
 	mov sp, stack
 	push cs
@@ -93,10 +77,9 @@ irq_save:
 	jmp irq.ret
 
 irq_load:
-	mov sp, save_end
-	popa
+	mov sp, word [save_sp]
+	mov ss, word [save_ss]
 	pop es
 	pop ds
-	pop ss
-	cs pop sp
+	popa
 	iret
