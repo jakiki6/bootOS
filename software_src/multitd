@@ -11,6 +11,21 @@ save_sp: \
 save_ss: \
 	equ save_sp + 2
 
+config:	equ 0x1420
+config_pid: \
+	equ config + 0
+config_time_left: \
+	equ config_pid + 2
+sp_table: \
+	equ config_time_left + 2
+entry_size: \
+	equ 0x04
+max_pid: \
+	equ 0x100
+
+proc_time: \
+	equ 0x0001
+
 	org base
 	bits 16
 
@@ -48,12 +63,42 @@ start:	push cs
 	mov al, ah
 	out 0x40, al
 
+	mov word [config_pid], 0x0000
+	mov word [config_time_left], proc_time
+	mov di, sp_table
+	push di
+	mov cx, max_pid * entry_size
+	xor ax, ax
+	rep stosb
+	pop di
+	pushf
+	call 0x1000:.c1
+.c1:	pusha
+	push ds
+	push es
+	mov ax, sp
+	stosw
+	mov ax, ss
+	stosw
+
 	sti
 	int 0x20
 irq:	int backup
-	iret
+	cli
 	jmp irq_save
-.ret:	jmp irq_load
+.ret1:	dec word [config_time_left]
+	mov ax, word [config_time_left]
+	cmp ax, 0x0000
+	jne .ret2
+	call next_pid
+	mov word [config_pid], di
+	mov di, save_sp
+	xchg ax, cx
+	stosw
+	xchg ax, cx
+.fail	stosw
+	mov word [config_time_left], proc_time
+.ret2:	jmp irq_load
 
 
 irq_save:
@@ -74,7 +119,7 @@ irq_save:
 	push cs
 	pop es
 
-	jmp irq.ret
+	jmp irq.ret1
 
 irq_load:
 	mov sp, word [save_sp]
@@ -82,4 +127,53 @@ irq_load:
 	pop es
 	pop ds
 	popa
+	sti
 	iret
+
+next_pid:
+	xor bp, bp
+	mov si, word [config_pid]
+	shl si, 2
+	add si, sp_table
+.c1:	inc bp
+	cmp bp, max_pid
+	je irq.fail
+	lodsw
+	mov cx, ax
+	lodsw
+	cmp si, sp_table + max_pid * entry_size
+	jne .c2
+	mov si, sp_table
+	jmp .c1
+.c2:	cmp cx, 0x0000
+	je .c1
+.c3	push si
+	sub si, sp_table
+	shr si, 2
+	mov di, si
+	pop si
+.ret:	ret
+
+;limit_si:
+;	sub si, sp_table
+;	push ax
+;	push bx
+;	push dx
+;	mov ax, si
+;	xor dx, dx
+;	mov bx, max_pid * entry_size
+;	div bx
+;	mov si, dx
+;	add si, sp_table
+;	pop dx
+;	pop bx
+;	pop ax
+
+;.c1:	cmp si, sp_table + max_pid * entry_size
+;	jna .ret
+;	sub si, max_pid * entry_size
+;	jmp .c1
+
+;.ret:	ret
+
+times 512 - ($ - $$) nop
