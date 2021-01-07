@@ -1,179 +1,140 @@
-target:	equ 0x08
-backup:	equ 0xff
-stack:	equ 0x0800
-base:	equ 0x1000
-obase:	equ 0x7c00
-basesg:	equ 0x1000
+org 0x7c00
+bits 16
 
-save:	equ 0x1400
-save_sp: \
-	equ save + 0
-save_ss: \
-	equ save_sp + 2
+target: equ 0x08
+backup: equ 0xff
+stack:  equ 0x8000
 
-config:	equ 0x1420
-config_pid: \
-	equ config + 0
-config_time_left: \
-	equ config_pid + 2
-sp_table: \
-	equ config_time_left + 2
-entry_size: \
-	equ 0x04
-max_pid: \
-	equ 0x100
 
-proc_time: \
-	equ 0x0001
-
-	org base
-	bits 16
-
-_start:	mov si, obase
-	mov di, base
-	push basesg
-	pop es
-	mov cx, 0x0200
-.loop:	cs lodsb
-	es stosb
-	loop .loop
-	jmp basesg:start
-
-start:	push cs
-	pop ds
-	push cs
-	pop ss
+setup_sched:
 	push 0x0000
-	pop es
-	mov sp, stack
+        pop es
 
 	cli
-	es mov ax, word [target * 4]
-	es mov word [backup * 4], ax
-	es mov ax, word [target * 4 + 2]
+        es mov ax, word [target * 4]
+        es mov word [backup * 4], ax
+        es mov ax, word [target * 4 + 2]
         es mov word [backup * 4 + 2], ax
-	es mov word [target * 4], irq
-	es mov word [target * 4 + 2], basesg
+        es mov word [target * 4], irq
+        es mov word [target * 4 + 2], 0x0000
 
 	mov al, 0b00110100
-	out 0x43, al
+        out 0x43, al
 
-	mov ax, 0x1000
-	out 0x40, al
-	mov al, ah
-	out 0x40, al
+        mov ax, 0x1000
+        out 0x40, al
+        mov al, ah
+        out 0x40, al
 
-	mov word [config_pid], 0x0000
-	mov word [config_time_left], proc_time
-	mov di, sp_table
-	push di
-	mov cx, max_pid * entry_size
-	xor ax, ax
-	rep stosb
-	pop di
-	pushf
-	call 0x1000:.c1
-.c1:	pusha
-	push ds
-	push es
-	mov ax, sp
-	stosw
-	mov ax, ss
-	stosw
+	push cs
+	pop es
 
 	sti
 	int 0x20
-irq:	int backup
-	cli
-	jmp irq_save
-.ret1:	dec word [config_time_left]
-	mov ax, word [config_time_left]
-	cmp ax, 0x0000
-	jne .ret2
-	call next_pid
-	mov word [config_pid], di
-	mov di, save_sp
-	xchg ax, cx
-	stosw
-	xchg ax, cx
-.fail	stosw
-	mov word [config_time_left], proc_time
-.ret2:	jmp irq_load
 
+irq:	cli
+	int backup
+	jmp irq_save
+.s1:	call sched
+	jmp irq_load
 
 irq_save:
-	; structure:
-	;	es ds regs ip cs flags
-	;	 = 14 bytes            \ save
-	pusha
-	push ds
-	push es
-
-	cs mov word [save_sp], sp
+        ; structure:
+        ;       ss es ds regs ip cs flags
+        ;        = 14 bytes            \ save
+        pusha
+        push ds
+        push es
+	push ss
+        cs mov word [save_sp], sp
 	cs mov word [save_ss], ss
 
+	push 0x2000
+	pop ss
+        mov sp, stack
+	push cs
+	pop ds
 
-	mov sp, stack
+	mov ax, [save_ss]
+        push ax
+        pop es
+	mov si, word [save_sp]
+	mov di, word [pid]
+	shl di, 6
+	push 0x3000
+	pop ds
+	push di
+
+	mov cx, 32
+.loop:	lodsb
+	ds stosb
+	loop .loop
+
+	pop di
+	cs mov ax, word [save_sp]
+	mov word [di+32], ax
+	cs mov ax, word [save_ss]
+	mov word [di+34], ax
+
 	push cs
 	pop ds
 	push cs
 	pop es
 
-	jmp irq.ret1
+        jmp irq.s1
 
 irq_load:
-	mov sp, word [save_sp]
-	mov ss, word [save_ss]
-	pop es
+	mov si, word [pid]
+	shl si, 6
+	push 0x3000
 	pop ds
-	popa
-	sti
-	iret
 
-next_pid:
-	xor bp, bp
-	mov si, word [config_pid]
-	shl si, 2
-	add si, sp_table
-.c1:	inc bp
-	cmp bp, max_pid
-	je irq.fail
-	lodsw
-	mov cx, ax
-	lodsw
-	cmp si, sp_table + max_pid * entry_size
-	jne .c2
-	mov si, sp_table
-	jmp .c1
-.c2:	cmp cx, 0x0000
-	je .c1
-.c3	push si
-	sub si, sp_table
-	shr si, 2
-	mov di, si
-	pop si
-.ret:	ret
+	mov ax, word [si+32]
+	cs mov word [save_sp], ax
+	mov ax, word [si+34]
+	cs mov word [save_ss], ax
 
-;limit_si:
-;	sub si, sp_table
-;	push ax
-;	push bx
-;	push dx
-;	mov ax, si
-;	xor dx, dx
-;	mov bx, max_pid * entry_size
-;	div bx
-;	mov si, dx
-;	add si, sp_table
-;	pop dx
-;	pop bx
-;	pop ax
+	mov di, word [save_sp]
+	mov ax, word [save_ss]
+	push ax
+	pop es
 
-;.c1:	cmp si, sp_table + max_pid * entry_size
-;	jna .ret
-;	sub si, max_pid * entry_size
-;	jmp .c1
+	mov cx, 32
+.loop:	ds lodsb
+	stosb
+	loop .loop
 
-;.ret:	ret
+	push cs
+	pop ds
 
-times 512 - ($ - $$) nop
+        mov sp, word [save_sp]
+	mov ss, word [save_ss]
+
+	pop ss        
+        pop es
+        pop ds
+        popa
+        sti
+        iret
+
+; do your fancy stuff here
+sched:
+	push 0x3000
+	pop ds
+	cs mov si, word [pid]
+	shl si, 6
+.loop:	mov al, byte [si+63]
+	cmp al, 0
+	je .found
+	add si, 64
+	jmp .loop
+.found:	shr si, 6
+	mov word [pid], si
+	ret
+
+save_sp:
+	dw 0
+save_ss:
+	dw 0
+pid:
+	dw 0
