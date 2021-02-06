@@ -19,7 +19,7 @@
         ;   vertical wall.
         ;
 
-        cpu 8086
+;        cpu 8086
 
 EMPTY:  equ 0x00        ; Code for empty space
 WALL:   equ 0x80        ; Code for wall
@@ -47,15 +47,19 @@ maze:   equ 0xff00      ; Location of maze (16x16)
 start:
         mov ax,0x0013   ; Graphics mode 320x200x256 colors
         int 0x10        ; Setup video mode
-        mov ax,0xa000   ; Point to video memory.
-        mov ds,ax
-        mov es,ax
+;        mov ax,0xa000   ; Point to video memory.
+;        mov ds,ax
+;        mov es,ax
+	push 0xa000
+	pop ds
+	push ds
+	pop es
 restart:
         cld
-	inc byte [game_loop.lvl_pointer + 2]
+	cs inc byte [game_loop.lvl_pointer + 2]
         xor cx,cx
         push cx         ; shot+down
-        in ax,0x40
+        in al, 0x40
         push ax         ; rnd
         mov ah,0x18     ; Start point at maze
         push ax         ; px
