@@ -7,7 +7,7 @@ init:
 		mov sp,0x8000
 		mov byte [0xffff], dl
 		cmp byte [0xfffe], 0xff
-		je error4
+		je error_ran_already
 get_disk:
 		mov al, "#"
 		call input_line
@@ -20,28 +20,23 @@ get_disk:
 		mov ah, 0x00
 		push ax
 		cmp al, [0xffff]
-		je error3
-copy:		;Init
-		mov ax, 0x0201
-		mov cx, 0b0000000000111110
-		xor dx, dx
-		pop dx
-		mov bx, 0xa000
-copy_loop:	;Read
-		pusha
-		xor dx, dx
+		je error_same_drive
+copy:		push cs
+		pop ds
+		mov si, dap
+		mov ah, 0x42
 		mov dl, [0xffff]
-		inc cl
-		int 0x13
-		jc error1
-		popa
-		;Write
 		pusha
-		inc ah
 		int 0x13
-		jc error2
 		popa
-		loop copy_loop
+		jc error_read
+		pop dx
+		mov ah, 0x43
+		dec word [dap.lba_lower]
+		pusha
+		int 0x13
+		popa
+		jc error_write
 exit:
 		mov si, success
 		mov byte [0xfffe], 0xff
@@ -57,16 +52,16 @@ _exit:
 		mov ah,0x00
 		int 0x16
 		jmp 0xffff:0x0000
-error1:
+error_ran_already:
 	mov si, err1
 	jmp _print
-error2:
+error_same_drive:
 	mov si, err2
 	jmp _print
-error3:
+error_read:
         mov si, err3
         jmp _print
-error4:
+error_write:
 	mov si, err4
 	jmp _print
 
@@ -133,11 +128,22 @@ os3:
         int 0x10        ; BIOS int 0x10 = Video
         ret
 
-success: db "Success 0x00. Press a key to reboot...", 0x0a, 0x0d, 0
-err1: db "Error 0x01. Press a key to reboot...", 0x0a, 0x0d, 0
-err2: db "Error 0x02. Press a key to reboot...", 0x0a, 0x0d, 0
-err3: db "Error 0x03. Press a key to reboot...", 0x0a, 0x0d, 0
-err4: db "Error 0x04. Press a key to reboot...", 0x0a, 0x0d, 0
+success: db "Success 0x00. Press a key to reboot...", 0x0d, 0
+err1: db "Error: program ran already", 0x0d, 0
+err2: db "Error: cannot install to same drive", 0x0d, 0
+err3: db "Error: read error", 0x0d, 0
+err4: db "Error: write error", 0x0d, 0
+
+dap:
+dap.header:	db 0x10
+dap.unused:	db 0x00
+dap.count:	dw 0x0080
+dap.offset_offset:
+		dw 0x0000
+dap.offset_segment:
+		dw 0x1000
+dap.lba_lower:	dq 0x0001
+dap.lba_upper:	dq 0x0000
 
 times 510 - ($ - $$) db 0x00
 db 0x55, 0xaa
