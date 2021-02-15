@@ -1,5 +1,5 @@
 # Coreutils
 clear clock disk fat12 init32 install lba loadb multitd pull push reboot sound qm
 # Games
-basic charset chess doom fbird invaders lights mine pillman screensaver slide snake sokoban tetris
+basic charset chess doom fbird invaders lights mine pillman screensaver slide snake sokoban tetris heart
 # Dev
