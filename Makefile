@@ -36,12 +36,6 @@ run: os.img
 .PHONY: install
 install:
 	dd if=os.img of=$M
-.PHONY: push
-push: clean software
-	mv os.img osall.iso
-	git add $(FILES)
-	git commit -m "$(M)"
-	git push
 .PHONY: software
 software: os.img symbols
 	mkdir software
