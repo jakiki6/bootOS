@@ -42,16 +42,6 @@ start:
         movsw           ; Copy IP address
         stosw           ; Copy CS address
         loop .load_vec
-	mov di, dap
-	mov cx, dap.end - dap
-	push di
-	rep stosb
-	pop di
-	xchg ax, cx
-	stosb
-	inc di
-	mov al, 0x01
-	stosw
 	int 0x20	; Jump to real main and set CS:IP to fix the issue with some BIOSes
         ;
         ; Warm start of bootOS
@@ -371,8 +361,6 @@ os2_:   mov al, dl
 input_key:
         mov ah,0x00
         int 0x16
-	cmp al, ";"
-	je 0x7c00
 
         ;
         ; Screen output of character contained in al
@@ -466,25 +454,25 @@ commands:
         dw edit_command
         db 2,"rm"
         dw rm_command
-	db 2,"sr"
-	dw os20
+	db 1, "/"
+	dw 0x7c00
 
-dap:	equ 0x7700
-dap.header:	equ 0x7700
-;	db .end - dap	; header
-dap.unused:	equ 0x7701
-;	db 0x00		; unused
-dap.count:	equ 0x7702
-;	dw 0x0001	; number of sectors
-dap.offset_offset:	equ 0x7704
-;	dw 0		; offset
-dap.offset_segment:	equ 0x7706
-;	dw 0		; offset
-dap.lba_lower:	equ 0x7708
-;	dq 0		; lba
-dap.lba_upper:	equ 0x770c
-;	dq 0		; lba
-dap.end:	equ 0x7710
+dap:
+dap.header:
+	db dap.end - dap	; header
+dap.unused:
+	db 0x00		; unused
+dap.count:
+	dw 0x0001	; number of sectors
+dap.offset_offset:
+	dw 0		; offset
+dap.offset_segment:
+	dw 0		; segment
+dap.lba_lower:
+	dq 0		; lba
+dap.lba_upper:
+	dq 0		; lba
+dap.end:
 
 
 int_restart:            equ 0x20
