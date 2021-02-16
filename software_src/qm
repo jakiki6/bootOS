@@ -1,13 +1,33 @@
-	org 0x7c00
+	org 0xb000
 	bits 16
-start:	xor ax, ax
+
+start:	mov si, 0x7c00
+	mov di, 0xb000
+	mov cx, 0x0200
+	rep movsb
+
+	push setup
+	ret
+
+setup:	mov si, splice
+	mov di, bootOS.input_key
+	mov cx, splice.end - splice
+	rep movsb
+
+	int 0x20
+
+hook:	mov ah, 0x00
 	int 0x16
 	cmp ah, 0x48
 	je down
 	cmp ah, 0x50
 	je up
-end:	int 0x20
+	jmp bootOS.output_char
 up:	add word [bootOS.dap.lba_lower + 1], 1
-	jmp end
+	jmp hook
 down:	sub word [bootOS.dap.lba_lower + 1], 1
-        jmp end
+        jmp hook
+
+splice:	push hook
+	ret
+.end:
