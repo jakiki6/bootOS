@@ -1,0 +1,3 @@
+make clean software
+mv os.img osall.iso
+git add .
