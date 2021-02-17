@@ -1,0 +1,25 @@
+start:  mov ax, 0x0000 | 0b11111011
+        mov dx, 0x0000
+        int 0x14
+recv:	mov di, 0xa000
+	mov cx, 0x0200
+	mov ah, 0x02
+	mov dx, 0x0000
+	cld
+.loop:	int 0x14
+	test ah, 0b1000000
+	jnz .loop
+	stosb
+	loop .loop
+
+save:	mov al, "?"
+	int 0x26
+        mov bx, si
+        mov di, 0xa000
+        int 0x24
+        jc err
+        int 0x20
+err:
+        mov al, 0x13
+        int 0x22
+        int 0x20
