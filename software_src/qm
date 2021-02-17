@@ -24,10 +24,44 @@ hook:	mov ah, 0x00
 	je up
 	jmp bootOS.output_char
 up:	add word [bootOS.dap.lba_lower + 1], 1
+	adc word [bootOS.dap.lba_lower + 3], 0
+	call update
 	jmp hook
 down:	sub word [bootOS.dap.lba_lower + 1], 1
-        jmp hook
+	sbb word [bootOS.dap.lba_lower + 3], 0
+	call update
+	jmp hook
+update:	pusha
+	push es
+	mov si, bootOS.dap.lba_lower + 1
+	mov di, 0x009e
+	push 0xb800
+	pop es
+	mov cx, 4
+	mov bx, table
+loop:	cs lodsb
+	mov ah, al
+	and al, 0x0f
+	and ah, 0xf0
+	shr ah, 4
+	xlat
+	std
+	stosb
+	cld
+	dec di
+	mov al, ah
+	xlat
+	std    
+        stosb
+        cld
+	dec di
+	loop loop
+	pop es
+	popa
+	ret
 
 splice:	push hook
 	ret
 .end:
+
+table:	db "0123456789abcdef"
