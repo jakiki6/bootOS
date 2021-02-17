@@ -45,19 +45,10 @@ software: os.img symbols
 	mv base.img os.img
 	rm -fr software
 .PHONY: installer
-installer: symbols
+installer:
 	nasm -f bin -o installer.img installer.asm
-	nasm -f bin -o os.img os.asm
-	mkdir software
-	bash makesoftware.sh
-	python3 makebase.py $(EXCLUDE)
-	dd if=os.img bs=512 count=1 > tmp.img
-	mv tmp.img os.img
-	cat base.img >> os.img
-	cat installer.img os.img >> tmp.img
-	mv tmp.img os.img
-	rm -fr software
-	rm base.img installer.img
+	cat os.img >> installer.img
+	mv installer.img os.img
 .PHONY: cdimg
 cdimg: os.img
 	dd if=/dev/zero of=tmp.img bs=512 count=2879
