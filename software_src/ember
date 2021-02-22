@@ -214,12 +214,17 @@ not_rw:
 
 not_print:
 	cmp al, 'd'
-	jnz short parse_error ; TODO: make this a direct jump when features are finalized
+	jnz short not_drive
 	xchg ax, di
 	mov byte [do_disk.disknum+1], al
 
-
 	jmp shell
+
+not_drive:
+	cmp al, 'a'
+	jnz short parse_error ; TODO: make this a direct jump when features are finalized
+	jmp 0xffff:0x0000
+
 
 verify_end:
 	lodsb
