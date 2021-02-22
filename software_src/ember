@@ -233,7 +233,7 @@ parse_error:
 .skip_char:
 	mov al, '?'
 	int i_putchar
-	mov al, 0x0a
+	mov al, 0x0d
 	int i_putchar
 	jmp near shell
 
