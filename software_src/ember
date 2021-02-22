@@ -194,7 +194,21 @@ not_run:
 	jmp shell
 
 not_rw:
-	jmp short parse_error ; TODO: make this a direct jump when features are finalized
+	cmp al, 'p' ; print
+	jnz short parse_error ; TODO: make this a direct jump when features are finalized
+
+	mov cx, 16
+	mov si, di
+	mov ah, 0x0e
+	mov bx, 0x0007
+.loop:	lodsb
+	int 0x10
+	loop .loop
+
+	mov al, 0x0d
+	int i_putchar
+
+	jmp shell
 
 verify_end:
 	lodsb
