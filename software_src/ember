@@ -208,6 +208,8 @@ not_rw:
 	mov al, 0x0d
 	int i_putchar
 
+	add di, 16
+
 	jmp shell
 
 not_print:
@@ -215,6 +217,7 @@ not_print:
 	jnz short parse_error ; TODO: make this a direct jump when features are finalized
 	xchg ax, di
 	mov byte [do_disk.disknum+1], al
+
 
 	jmp shell
 
