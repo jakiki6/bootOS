@@ -194,8 +194,8 @@ not_run:
 	jmp shell
 
 not_rw:
-	cmp al, 'p' ; print
-	jnz short parse_error ; TODO: make this a direct jump when features are finalized
+	cmp al, 'p'
+	jnz short not_print
 
 	mov cx, 16
 	mov si, di
@@ -207,6 +207,14 @@ not_rw:
 
 	mov al, 0x0d
 	int i_putchar
+
+	jmp shell
+
+not_print:
+	cmp al, 'd'
+	jnz short parse_error ; TODO: make this a direct jump when features are finalized
+	xchg ax, di
+	mov byte [do_disk.disknum+1], al
 
 	jmp shell
 
