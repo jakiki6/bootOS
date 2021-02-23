@@ -11,18 +11,29 @@
 ; memory map:
 ; [0000; 0400) IVT
 ; [0400; 0500) BDA
-; [    ; 7c00) stack
-; [7c00; 7e00) MBR
-; [7de0; 7deb) filename buffer
-; [7df0; 7e00) EDD disk packet
-; [7e00;     ) variables
+; [    ; 7a00) stack
+; [7a00; 7c00) MBR
+; [7e00; 7e10) EDD disk packet
+; [7e10;     ) variables
 
-org 0x7c00
+org 0x7a00
 bits 16
 
 %define linebuffer 0x600
 ; Some BIOSes start with CS=07c0. Make sure this does not wreak havoc
-	jmp 0:start
+mbr:
+	xor cx, cx
+	mov ds, cx
+	mov es, cx
+	mov ss, cx
+	mov dl, byte [bootOS.disk.1+1]
+	cld
+	mov si, 0x7c00
+	mov di, 0x7a00
+	mov ch, 0x02
+	rep movsb
+	jmp 0x0:start
+
 
 ivtptr:
 %define i_biosdisp 0x10
@@ -43,17 +54,11 @@ ivtptr:
 .end:
 
 start:
-	mov dl, byte [bootOS.disk.1+1]
 	cli
-	xor cx, cx
-	mov ds, cx
-	mov es, cx
-	mov ss, cx
-	mov sp, 0x7c00
+	mov sp, 0x7a00
 	mov [do_disk.disknum+1], dl
 	sti
 
-	cld
 	mov di, 0x20 * 4
 	mov si, ivtptr
 	mov cl, ivtptr.end - ivtptr
@@ -62,6 +67,7 @@ start:
 	xor ax, ax
 	stosw
 	loop .ivtloop
+
 
 	xor bx, bx
 shell:
@@ -221,11 +227,6 @@ not_print:
 .shell:	jmp shell
 
 not_drive:
-	cmp al, 'a'
-	jnz short not_reboot
-	jmp 0xffff:0x0000
-
-not_reboot:
 	cmp al, ';'
 	jnz short parse_error ; TODO: make this a direct jump when features are finalized
 .loop	lodsb
