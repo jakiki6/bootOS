@@ -3,10 +3,13 @@
 ; you can install it to you hdd too
 
 ; commands to install:
-;   * run 7c0d:90909090
+;   * run 7c08:90909090
 ;     * removes the statement that loads dl from bootOS
 ;   * run 7c00w00000000
 ;     * installs it to the first sector
+;   * run 7f00:ea0000ffff
+;   * run 7f00g
+;     * reboots (executes jmp 0xffff:0x0000)
 
 ; memory map:
 ; [0000; 0400) IVT
