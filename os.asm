@@ -469,9 +469,9 @@ dap.offset_offset:
 dap.offset_segment:
 	dw 0		; segment
 dap.lba_lower:
-	dq 0		; lba
+	dd 0		; lba
 dap.lba_upper:
-	dq 0		; lba
+	dd 0		; lba
 dap.end:
 
 
