@@ -267,9 +267,9 @@ next_entry:
         ; track 1, the second entry to track 2 and so.
         ;
 get_location:
-	mov cx, di
-	sub cx, sector - entry_size - (1 << 4)
-;        lea cx,[di-(sector-entry_size)] ; Get entry pointer into directory
+	; mov cx, di
+	; sub cx, sector - entry_size - (1 << 4)
+        lea cx,[di - (sector - entry_size - (1 << 4))] ; Get entry pointer into directory
                         ; Plus one entry (files start on track 1)
         shr cx,4        ; Divide by 16
         ret
